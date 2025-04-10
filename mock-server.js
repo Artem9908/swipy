@@ -120,8 +120,8 @@ app.get('/api/restaurants', async (req, res) => {
         phone: place.formatted_phone_number || '',
         url: place.website || '',
         image: place.photos && place.photos.length > 0 
-          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}`
-          : `https://source.unsplash.com/1200x800/?restaurant`,
+          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=1600&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_API_KEY}`
+          : `https://source.unsplash.com/1600x900/?restaurant`,
         coordinates: { 
           latitude: place.geometry.location.lat, 
           longitude: place.geometry.location.lng 
@@ -137,12 +137,12 @@ app.get('/api/restaurants', async (req, res) => {
         ],
         photos: place.photos && place.photos.length > 0 
           ? place.photos.slice(0, 3).map(photo => 
-              `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}&key=${GOOGLE_API_KEY}`
+              `https://maps.googleapis.com/maps/api/place/photo?maxwidth=1600&photoreference=${photo.photo_reference}&key=${GOOGLE_API_KEY}`
             )
           : [
-              `https://source.unsplash.com/800x600/?restaurant`,
-              `https://source.unsplash.com/800x600/?food`,
-              `https://source.unsplash.com/800x600/?dish`
+              `https://source.unsplash.com/1600x900/?restaurant`,
+              `https://source.unsplash.com/1600x900/?food`,
+              `https://source.unsplash.com/1600x900/?dish`
             ]
       };
     }).filter(Boolean); // Удаляем null элементы после фильтрации

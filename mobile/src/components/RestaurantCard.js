@@ -16,9 +16,13 @@ export default function RestaurantCard({
   
   // Get the first image or use a placeholder
   const imageSource = restaurant.photos && restaurant.photos.length > 0 
-    ? { uri: restaurant.photos[0] } 
+    ? { uri: restaurant.photos[0].includes('maxwidth=') 
+        ? restaurant.photos[0] 
+        : restaurant.photos[0].replace('maxwidth=800', 'maxwidth=1200') }
     : restaurant.image 
-      ? { uri: restaurant.image }
+      ? { uri: restaurant.image.includes('maxwidth=') 
+          ? restaurant.image.replace('maxwidth=1200', 'maxwidth=1600') 
+          : restaurant.image }
       : { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
   
   // Format address

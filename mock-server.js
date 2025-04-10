@@ -725,6 +725,87 @@ app.get('/api/users/:userId/friends', (req, res) => {
   return res.json(userFriends);
 });
 
+// Get user's liked restaurants
+app.get('/api/users/:userId/likes', (req, res) => {
+  const { userId } = req.params;
+  
+  // Get likes for this user
+  const userLikes = likes.filter(like => like.userId === userId);
+  
+  return res.json(userLikes);
+});
+
+// Check if a restaurant is liked by a user
+app.get('/api/users/:userId/likes/:restaurantId', (req, res) => {
+  const { userId, restaurantId } = req.params;
+  
+  // Check if this restaurant is liked by the user
+  const isLiked = likes.some(like => 
+    like.userId === userId && like.restaurantId === restaurantId
+  );
+  
+  return res.json({ isLiked });
+});
+
+// Add a restaurant to likes
+app.post('/api/users/:userId/likes', (req, res) => {
+  const { userId } = req.params;
+  const { 
+    restaurantId, 
+    restaurantName, 
+    image, 
+    cuisine, 
+    priceRange, 
+    rating, 
+    location 
+  } = req.body;
+  
+  // Check if already liked
+  const existingLike = likes.find(like => 
+    like.userId === userId && like.restaurantId === restaurantId
+  );
+  
+  if (existingLike) {
+    return res.json(existingLike);
+  }
+  
+  // Add new like
+  const newLike = {
+    userId,
+    restaurantId,
+    restaurantName,
+    image,
+    cuisine,
+    priceRange,
+    rating,
+    location,
+    timestamp: new Date().toISOString()
+  };
+  
+  likes.push(newLike);
+  
+  return res.json(newLike);
+});
+
+// Remove a restaurant from likes
+app.delete('/api/users/:userId/likes/:restaurantId', (req, res) => {
+  const { userId, restaurantId } = req.params;
+  
+  // Find the index of the like to remove
+  const likeIndex = likes.findIndex(like => 
+    like.userId === userId && like.restaurantId === restaurantId
+  );
+  
+  if (likeIndex === -1) {
+    return res.status(404).json({ error: 'Like not found' });
+  }
+  
+  // Remove the like
+  const removedLike = likes.splice(likeIndex, 1)[0];
+  
+  return res.json(removedLike);
+});
+
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

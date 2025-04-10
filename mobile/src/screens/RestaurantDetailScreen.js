@@ -28,10 +28,12 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const [isLiked, setIsLiked] = useState(false);
   
   useEffect(() => {
     console.log("Initial restaurant data:", JSON.stringify(initialRestaurant, null, 2));
     fetchRestaurantDetails();
+    checkIfLiked();
   }, []);
   
   const fetchRestaurantDetails = async () => {
@@ -189,6 +191,59 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     return 'Hours not available';
   };
   
+  const checkIfLiked = async () => {
+    if (user && user._id && restaurant) {
+      try {
+        const restaurantId = restaurant.place_id || restaurant._id;
+        const apiUrl = Platform.OS === 'web' 
+          ? `http://localhost:5001/api/users/${user._id}/likes/${restaurantId}` 
+          : `http://192.168.0.82:5001/api/users/${user._id}/likes/${restaurantId}`;
+          
+        const res = await axios.get(apiUrl);
+        setIsLiked(res.data.isLiked);
+      } catch (e) {
+        console.error('Error checking if restaurant is liked:', e);
+        // If there's an error, assume it's not liked
+        setIsLiked(false);
+      }
+    }
+  };
+  
+  const toggleLike = async () => {
+    if (!user || !user._id) {
+      Alert.alert('Login Required', 'Please log in to save restaurants');
+      return;
+    }
+    
+    try {
+      const restaurantId = restaurant.place_id || restaurant._id;
+      const apiUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/users/${user._id}/likes` 
+        : `http://192.168.0.82:5001/api/users/${user._id}/likes`;
+        
+      if (isLiked) {
+        // Unlike
+        await axios.delete(`${apiUrl}/${restaurantId}`);
+      } else {
+        // Like
+        await axios.post(apiUrl, { 
+          restaurantId: restaurantId,
+          restaurantName: restaurant.name,
+          image: restaurant.image || (restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos[0] : null),
+          cuisine: restaurant.cuisine,
+          priceRange: restaurant.priceRange,
+          rating: restaurant.rating,
+          location: restaurant.address || restaurant.location
+        });
+      }
+      
+      setIsLiked(!isLiked);
+    } catch (e) {
+      console.error('Error toggling like status:', e);
+      Alert.alert('Error', 'Failed to update favorite status');
+    }
+  };
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -329,6 +384,15 @@ export default function RestaurantDetailScreen({ route, navigation }) {
           <TouchableOpacity style={styles.actionButton} onPress={visitWebsite}>
             <Ionicons name="globe-outline" size={24} color={COLORS.primary} />
             <Text style={styles.actionText}>Website</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
+            <Ionicons 
+              name={isLiked ? "heart" : "heart-outline"} 
+              size={24} 
+              color={isLiked ? COLORS.error : COLORS.primary} 
+            />
+            <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
         

@@ -16,6 +16,7 @@ import FriendsScreen from '../screens/FriendsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReservationsListScreen from '../screens/ReservationsListScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import SavedRestaurantsScreen from '../screens/SavedRestaurantsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -151,6 +152,11 @@ export default function AppNavigator() {
           options={{ 
             headerShown: false,
           }}
+        />
+        <Stack.Screen 
+          name="SavedRestaurants" 
+          component={SavedRestaurantsScreen} 
+          options={{ title: 'Favorite Restaurants' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

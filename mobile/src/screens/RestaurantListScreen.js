@@ -151,8 +151,17 @@ export default function RestaurantListScreen({ navigation, route }) {
             ? `http://localhost:5001/api/users/${user._id}/likes` 
             : `http://192.168.0.82:5001/api/users/${user._id}/likes`;
             
-          axios.post(apiUrl, { restaurantId: restaurant.place_id || restaurant._id })
-            .catch(e => console.error('Error saving like:', e));
+          // Ensure we're sending all required data for the saved restaurant
+          axios.post(apiUrl, { 
+            restaurantId: restaurant.place_id || restaurant._id,
+            restaurantName: restaurant.name,
+            image: restaurant.image || (restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos[0] : null),
+            cuisine: restaurant.cuisine,
+            priceRange: restaurant.priceRange,
+            rating: restaurant.rating,
+            location: restaurant.address || restaurant.location
+          })
+          .catch(e => console.error('Error saving like:', e));
         }
       }
       

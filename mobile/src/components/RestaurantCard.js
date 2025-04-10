@@ -37,6 +37,25 @@ export default function RestaurantCard({
   // Add state for image loading
   const [imageLoading, setImageLoading] = useState(true);
   
+  // Format hours for display
+  const formatHours = (hours) => {
+    if (!hours || !hours.length) return null;
+    
+    const today = new Date().getDay();
+    // Sunday in JavaScript is 0, but in data might be 6
+    const todayIndex = today === 0 ? 6 : today - 1;
+    
+    if (hours[todayIndex]) {
+      if (typeof hours[todayIndex] === 'string' && hours[todayIndex].includes(':')) {
+        return `Today: ${hours[todayIndex].split(': ')[1]}`;
+      } else if (hours[todayIndex].day && hours[todayIndex].open) {
+        return `Today: ${hours[todayIndex].open} - ${hours[todayIndex].close}`;
+      }
+    }
+    
+    return null;
+  };
+  
   return (
     <Animated.View 
       style={[
@@ -102,6 +121,9 @@ export default function RestaurantCard({
               <View style={styles.ratingContainer}>
                 <Ionicons name="star" size={16} color={COLORS.warning} />
                 <Text style={styles.rating}>{restaurant.rating}</Text>
+                {restaurant.reviewCount && (
+                  <Text style={styles.reviewCount}>({restaurant.reviewCount})</Text>
+                )}
               </View>
             )}
           </View>
@@ -112,6 +134,13 @@ export default function RestaurantCard({
               {restaurant.address ? formatAddress(restaurant.address) : restaurant.location || 'Address not available'}
             </Text>
           </View>
+          
+          {formatHours(restaurant.hours) && (
+            <View style={styles.hoursRow}>
+              <Ionicons name="time-outline" size={16} color={COLORS.text.secondary} />
+              <Text style={styles.hours}>{formatHours(restaurant.hours)}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -133,7 +162,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: '70%',
+    height: '65%', // Reduced slightly to make room for more info
     backgroundColor: COLORS.background,
     overflow: 'hidden',
   },
@@ -171,7 +200,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.error,
   },
   overlayText: {
-    ...FONTS.h2,
     fontWeight: 'bold',
   },
   infoContainer: {
@@ -207,15 +235,30 @@ const styles = StyleSheet.create({
     ...FONTS.body,
     color: COLORS.text.secondary,
     marginLeft: 4,
+    marginRight: 2,
+  },
+  reviewCount: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
   },
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: SIZES.padding.sm,
   },
   address: {
     ...FONTS.caption,
     color: COLORS.text.secondary,
     marginLeft: SIZES.padding.xs,
     flex: 1,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hours: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
+    marginLeft: SIZES.padding.xs,
   }
 });

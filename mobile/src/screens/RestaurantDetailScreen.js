@@ -164,6 +164,31 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     navigation.navigate('Reservation', { restaurant, user });
   };
   
+  const formatHours = (hours) => {
+    if (!hours) return 'Hours not available';
+    
+    if (typeof hours === 'string') return hours;
+    
+    if (Array.isArray(hours)) {
+      // Check if hours are in the format with day objects
+      if (hours.length > 0 && typeof hours[0] === 'object' && hours[0].day) {
+        const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        return daysOfWeek.map(day => {
+          const dayHours = hours.find(h => h.day === day);
+          if (dayHours) {
+            return `${day}: ${dayHours.open} - ${dayHours.close}`;
+          }
+          return `${day}: Closed`;
+        }).join('\n');
+      }
+      
+      // If it's just an array of strings
+      return hours.join('\n');
+    }
+    
+    return 'Hours not available';
+  };
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -280,13 +305,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         {restaurant.hours && (
           <View style={styles.hoursContainer}>
             <Ionicons name="time-outline" size={20} color={COLORS.text.secondary} />
-            <Text style={styles.hours}>
-              {typeof restaurant.hours === 'string' 
-                ? restaurant.hours 
-                : Array.isArray(restaurant.hours) 
-                  ? restaurant.hours.join('\n')
-                  : 'Hours not available'}
-            </Text>
+            <Text style={styles.hours}>{formatHours(restaurant.hours)}</Text>
           </View>
         )}
         

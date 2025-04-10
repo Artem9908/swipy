@@ -101,7 +101,22 @@ export default function RestaurantListScreen({ navigation, route }) {
       
       if (res.data && Array.isArray(res.data)) {
         console.log(`Received ${res.data.length} restaurants`);
-        setRestaurants(res.data);
+        
+        // Process restaurant data to ensure consistent format
+        const processedRestaurants = res.data.map(restaurant => {
+          return {
+            ...restaurant,
+            // Ensure we have a place_id or _id
+            _id: restaurant._id || restaurant.place_id,
+            place_id: restaurant.place_id || restaurant._id,
+            // Ensure we have a proper address
+            address: restaurant.address || restaurant.location,
+            // Ensure we have a proper image
+            image: restaurant.image || (restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos[0] : null)
+          };
+        });
+        
+        setRestaurants(processedRestaurants);
         setCurrentIndex(0);
         position.setValue({ x: 0, y: 0 });
       } else {

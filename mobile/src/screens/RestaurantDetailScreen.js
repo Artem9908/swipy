@@ -15,6 +15,7 @@ import {
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
+import FullScreenImageViewer from '../components/FullScreenImageViewer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,6 +26,8 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [fullScreenVisible, setFullScreenVisible] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   
   useEffect(() => {
     console.log("Initial restaurant data:", JSON.stringify(initialRestaurant, null, 2));
@@ -52,7 +55,17 @@ export default function RestaurantDetailScreen({ route, navigation }) {
       const response = await axios.get(apiUrl);
       
       if (response.data) {
-        console.log('Restaurant details received:', response.data);
+        console.log('Restaurant details received:');
+        console.log('Has photos:', !!response.data.photos);
+        if (response.data.photos) {
+          console.log('Number of photos:', response.data.photos.length);
+          console.log('First photo URL:', response.data.photos[0]);
+        }
+        console.log('Has image:', !!response.data.image);
+        if (response.data.image) {
+          console.log('Image URL:', response.data.image);
+        }
+        
         setRestaurant(response.data);
         
         if (response.data.reviews) {
@@ -70,12 +83,18 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   };
   
   const getPhotoUrl = () => {
+    let photoUrl;
+    
     if (restaurant.photos && restaurant.photos.length > 0) {
-      return { uri: restaurant.photos[currentPhotoIndex] };
+      photoUrl = { uri: restaurant.photos[currentPhotoIndex] };
     } else if (restaurant.image) {
-      return { uri: restaurant.image };
+      photoUrl = { uri: restaurant.image };
+    } else {
+      photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
     }
-    return { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
+    
+    console.log('Photo URL:', JSON.stringify(photoUrl));
+    return photoUrl;
   };
   
   const nextPhoto = () => {
@@ -172,7 +191,22 @@ export default function RestaurantDetailScreen({ route, navigation }) {
       <View style={styles.imageContainer}>
         {restaurant.photos && restaurant.photos.length > 0 || restaurant.image ? (
           <>
-            <Image source={getPhotoUrl()} style={styles.image} resizeMode="cover" />
+            <TouchableOpacity 
+              activeOpacity={0.9}
+              onPress={() => setFullScreenVisible(true)}
+            >
+              {imageLoading && (
+                <View style={styles.imagePlaceholder}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                </View>
+              )}
+              <Image 
+                source={getPhotoUrl()} 
+                style={styles.headerImage}
+                onLoadStart={() => setImageLoading(true)}
+                onLoadEnd={() => setImageLoading(false)}
+              />
+            </TouchableOpacity>
             
             {restaurant.photos && restaurant.photos.length > 1 && (
               <>
@@ -306,6 +340,12 @@ export default function RestaurantDetailScreen({ route, navigation }) {
           </View>
         )}
       </View>
+      
+      <FullScreenImageViewer
+        visible={fullScreenVisible}
+        imageUri={getPhotoUrl().uri}
+        onClose={() => setFullScreenVisible(false)}
+      />
     </ScrollView>
   );
 }
@@ -354,10 +394,12 @@ const styles = StyleSheet.create({
     height: height * 0.35,
     width: width,
     position: 'relative',
+    backgroundColor: COLORS.background,
   },
-  image: {
+  headerImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   noImageContainer: {
     width: '100%',
@@ -388,7 +430,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: SIZES.padding.sm,
     top: '50%',
-    transform: [{ translateY: -15 }],
+    transform: [{ translateY: -20 }],
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
     padding: 5,
@@ -397,7 +439,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: SIZES.padding.sm,
     top: '50%',
-    transform: [{ translateY: -15 }],
+    transform: [{ translateY: -20 }],
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
     padding: 5,
@@ -524,5 +566,16 @@ const styles = StyleSheet.create({
   reviewText: {
     ...FONTS.body,
     color: COLORS.text.secondary,
+  },
+  imagePlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    zIndex: 1
   }
 }); 

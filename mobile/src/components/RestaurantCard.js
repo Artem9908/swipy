@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 
@@ -33,6 +33,9 @@ export default function RestaurantCard({
     
     return `${address.street || ''}, ${address.city || ''}, ${address.state || ''} ${address.zipCode || ''}`;
   };
+  
+  // Add state for image loading
+  const [imageLoading, setImageLoading] = useState(true);
   
   return (
     <Animated.View 
@@ -69,7 +72,19 @@ export default function RestaurantCard({
         onPress={() => onPress && onPress(restaurant)}
         activeOpacity={0.9}
       >
-        <Image source={imageSource} style={styles.image} resizeMode="cover" />
+        <View style={styles.imageContainer}>
+          {imageLoading && (
+            <View style={styles.imagePlaceholder}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          )}
+          <Image 
+            source={imageSource} 
+            style={styles.image} 
+            onLoadStart={() => setImageLoading(true)}
+            onLoadEnd={() => setImageLoading(false)}
+          />
+        </View>
         
         <View style={styles.infoContainer}>
           <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
@@ -116,9 +131,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  image: {
+  imageContainer: {
     width: '100%',
     height: '70%',
+    backgroundColor: COLORS.background,
+    overflow: 'hidden',
+  },
+  imagePlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   overlayContainer: {
     position: 'absolute',

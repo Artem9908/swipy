@@ -21,7 +21,24 @@ let users = [
 // Кэш для ресторанов
 let restaurantsCache = {};
 let restaurantDetailsCache = {};
-let chat = [];
+let messages = [
+  { 
+    id: 'msg1', 
+    userId: '1', 
+    recipientId: '2', 
+    text: 'Привет, как дела?', 
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    read: true
+  },
+  { 
+    id: 'msg2', 
+    userId: '2', 
+    recipientId: '1', 
+    text: 'Привет! Всё хорошо, спасибо!', 
+    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    read: true
+  }
+];
 let reservations = [];
 let likes = [];
 let friends = [
@@ -621,12 +638,12 @@ app.get('/api/chat/:userId/:recipientId', (req, res) => {
   const { userId, recipientId } = req.params;
   
   // Получаем сообщения между пользователями
-  const messages = chat.filter(msg => 
+  const chatMessages = messages.filter(msg => 
     (msg.userId === userId && msg.recipientId === recipientId) ||
     (msg.userId === recipientId && msg.recipientId === userId)
   ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   
-  return res.json(messages);
+  return res.json(chatMessages);
 });
 
 app.post('/api/chat', (req, res) => {
@@ -646,10 +663,11 @@ app.post('/api/chat', (req, res) => {
     userId,
     recipientId,
     text,
-    timestamp: timestamp || new Date().toISOString()
+    timestamp: timestamp || new Date().toISOString(),
+    read: false
   };
   
-  chat.push(newMessage);
+  messages.push(newMessage);
   
   return res.json(newMessage);
 });
@@ -955,6 +973,206 @@ app.put('/api/users/:userId/status', (req, res) => {
     success: true, 
     status: userStatuses[userId] 
   });
+});
+
+// API для чатов
+app.get('/api/chat/:userId', (req, res) => {
+  const { userId } = req.params;
+  console.log(`Fetching chats for user: ${userId}`);
+  
+  // Проверка наличия пользователя
+  const user = users.find(u => u._id === userId);
+  if (!user) {
+    console.log(`User with ID ${userId} not found`);
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // Получаем все сообщения, где пользователь отправитель или получатель
+  const userMessages = messages.filter(message => 
+    message.userId === userId || message.recipientId === userId
+  );
+  
+  if (userMessages.length === 0) {
+    console.log(`No messages found for user: ${userId}`);
+    return res.json([]);
+  }
+  
+  // Группируем сообщения по собеседникам
+  const conversations = {};
+  
+  userMessages.forEach(message => {
+    const otherUserId = message.userId === userId ? message.recipientId : message.userId;
+    
+    if (!conversations[otherUserId]) {
+      conversations[otherUserId] = [];
+    }
+    
+    conversations[otherUserId].push(message);
+  });
+  
+  // Сортируем сообщения в каждой беседе по времени
+  Object.keys(conversations).forEach(otherUserId => {
+    conversations[otherUserId].sort((a, b) => 
+      new Date(a.timestamp) - new Date(b.timestamp)
+    );
+  });
+  
+  // Получаем информацию о пользователях
+  const conversationUsers = Object.keys(conversations).map(otherUserId => {
+    const user = users.find(u => u._id === otherUserId);
+    
+    if (!user) {
+      console.log(`User not found for id: ${otherUserId}`);
+      return null;
+    }
+    
+    // Получаем последнее сообщение для предпросмотра
+    const lastMessage = conversations[otherUserId][conversations[otherUserId].length - 1];
+    
+    return {
+      _id: user._id,
+      username: user.username,
+      name: user.name || user.username,
+      lastMessage
+    };
+  }).filter(Boolean); // Фильтруем null значения
+  
+  console.log(`Returning ${conversationUsers.length} conversations`);
+  return res.json(conversationUsers);
+});
+
+// Получение сообщений для конкретного собеседника
+app.get('/api/chat/:userId/:otherUserId', (req, res) => {
+  const { userId, otherUserId } = req.params;
+  console.log(`Fetching messages between user ${userId} and ${otherUserId}`);
+  
+  // Проверяем существование пользователей
+  const user = users.find(u => u._id === userId);
+  const otherUser = users.find(u => u._id === otherUserId);
+  
+  if (!user || !otherUser) {
+    console.log(`One of the users not found: user (${userId}): ${!!user}, otherUser (${otherUserId}): ${!!otherUser}`);
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // Получаем сообщения между двумя пользователями
+  const conversationMessages = messages.filter(message => 
+    (message.userId === userId && message.recipientId === otherUserId) ||
+    (message.userId === otherUserId && message.recipientId === userId)
+  );
+  
+  // Сортируем сообщения по времени
+  conversationMessages.sort((a, b) => 
+    new Date(a.timestamp) - new Date(b.timestamp)
+  );
+  
+  // Помечаем сообщения как прочитанные
+  messages = messages.map(message => {
+    if (message.userId === otherUserId && message.recipientId === userId && !message.read) {
+      return { ...message, read: true };
+    }
+    return message;
+  });
+  
+  console.log(`Found ${conversationMessages.length} messages between users`);
+  return res.json(conversationMessages);
+});
+
+// Отправка сообщения
+app.post('/api/chat', (req, res) => {
+  const { userId, recipientId, text } = req.body;
+  console.log(`Sending message from ${userId} to ${recipientId}`);
+  
+  if (!userId || !recipientId || !text) {
+    console.log('Missing required fields in message request');
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  // Проверяем существование пользователей
+  const user = users.find(u => u._id === userId);
+  const recipient = users.find(u => u._id === recipientId);
+  
+  if (!user || !recipient) {
+    console.log(`One of the users not found: sender (${userId}): ${!!user}, recipient (${recipientId}): ${!!recipient}`);
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const newMessage = {
+    id: `msg_${Date.now()}`,
+    userId,
+    recipientId,
+    text,
+    timestamp: new Date().toISOString(),
+    read: false
+  };
+  
+  messages.push(newMessage);
+  console.log(`Message saved, ID: ${newMessage.id}`);
+  
+  return res.json(newMessage);
+});
+
+// API для совпадений (matches)
+app.get('/api/matches/:userId/:restaurantId', (req, res) => {
+  const { userId, restaurantId } = req.params;
+  
+  // Получаем друзей пользователя
+  const userFriends = friends
+    .filter(f => f.userId === userId)
+    .map(f => f.friendId);
+  
+  // Находим лайки ресторана от друзей
+  const friendsWhoLiked = likes
+    .filter(like => 
+      userFriends.includes(like.userId) && 
+      like.restaurantId === restaurantId
+    )
+    .map(like => like.userId);
+  
+  // Получаем уникальных друзей
+  const uniqueFriendsWhoLiked = [...new Set(friendsWhoLiked)];
+  
+  return res.json({ matches: uniqueFriendsWhoLiked });
+});
+
+// Получение совпадений по ресторанам
+app.get('/api/users/:userId/matches', (req, res) => {
+  const { userId } = req.params;
+  
+  // Находим друзей пользователя
+  const userFriends = friends
+    .filter(f => f.userId === userId)
+    .map(f => f.friendId);
+  
+  if (!userFriends.length) {
+    return res.json([]);
+  }
+  
+  // Находим лайки пользователя
+  const userLikes = likes.filter(like => like.userId === userId);
+  
+  // Находим совпадения - рестораны, которые лайкнули и пользователь, и его друзья
+  const matches = [];
+  
+  userLikes.forEach(userLike => {
+    // Ищем друзей, которые лайкнули тот же ресторан
+    const friendsWhoLiked = likes.filter(like => 
+      userFriends.includes(like.userId) && 
+      like.restaurantId === userLike.restaurantId
+    );
+    
+    friendsWhoLiked.forEach(friendLike => {
+      matches.push({
+        friendId: friendLike.userId,
+        restaurantId: friendLike.restaurantId,
+        restaurantName: friendLike.restaurantName,
+        restaurantImage: friendLike.image,
+        matchTimestamp: new Date().toISOString() // В реальном приложении здесь был бы актуальный timestamp
+      });
+    });
+  });
+  
+  return res.json(matches);
 });
 
 const PORT = process.env.PORT || 5001;

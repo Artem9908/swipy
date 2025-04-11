@@ -252,34 +252,17 @@ export default function FriendsScreen({ navigation, route }) {
     if (!shareData) return;
     
     try {
-      const apiUrl = Platform.OS === 'web' 
-        ? 'http://localhost:5001/api/chat' 
-        : 'http://192.168.0.82:5001/api/chat';
-        
-      await axios.post(apiUrl, {
-        userId: user._id,
-        recipientId: friendId,
-        text: shareData.message,
-        timestamp: new Date().toISOString()
+      // Переходим на экран чата с выбранным другом
+      navigation.navigate('Chat', { 
+        user,
+        shareData: {
+          ...shareData,
+          friendId // Передаем ID друга
+        }
       });
-      
-      Alert.alert('Успех', 'Сообщение отправлено!');
-      
-      // Возвращаемся обратно после отправки
-      if (shareData.type === 'restaurant') {
-        navigation.navigate('RestaurantDetail', { 
-          restaurant: { 
-            _id: shareData.restaurantId,
-            name: shareData.restaurantName
-          }, 
-          user 
-        });
-      } else {
-        navigation.goBack();
-      }
     } catch (error) {
-      console.error('Error sharing with friend:', error);
-      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      console.error('Error navigating to chat:', error);
+      Alert.alert('Ошибка', 'Не удалось перейти к чату');
     }
   };
 

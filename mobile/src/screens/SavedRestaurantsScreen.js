@@ -111,17 +111,22 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   };
 
   const confirmRemove = (restaurantId, restaurantName) => {
+    console.log('Confirming removal of restaurant:', restaurantId, restaurantName);
+    
     Alert.alert(
-      'Remove Restaurant',
-      `Are you sure you want to remove "${restaurantName}" from your favorites?`,
+      'Удаление ресторана',
+      `Вы действительно хотите удалить "${restaurantName}" из избранного?`,
       [
         {
-          text: 'Cancel',
+          text: 'Отмена',
           style: 'cancel'
         },
         {
-          text: 'Remove',
-          onPress: () => removeFromSaved(restaurantId),
+          text: 'Удалить',
+          onPress: () => {
+            console.log('User confirmed removal');
+            removeFromSaved(restaurantId);
+          },
           style: 'destructive'
         }
       ]
@@ -130,15 +135,37 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
 
   const removeFromSaved = async (restaurantId) => {
     try {
+      console.log('Removing restaurant from saved:', restaurantId);
+      console.log('User ID:', user._id);
+      
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${user._id}/likes/${restaurantId}` 
         : `http://192.168.0.82:5001/api/users/${user._id}/likes/${restaurantId}`;
         
-      await axios.delete(apiUrl);
-      setSavedRestaurants(savedRestaurants.filter(restaurant => restaurant.restaurantId !== restaurantId));
+      console.log('API URL for delete request:', apiUrl);
+      
+      const response = await axios.delete(apiUrl);
+      console.log('Delete response:', response.status, response.data);
+      
+      // Обновление локального состояния после успешного удаления
+      setSavedRestaurants(prevState => prevState.filter(restaurant => restaurant.restaurantId !== restaurantId));
+      
+      // Небольшая задержка перед обновлением списка
+      setTimeout(() => {
+        fetchSavedRestaurants();
+      }, 300);
+      
     } catch (e) {
       console.error('Error removing from saved:', e);
-      Alert.alert('Error', 'Failed to remove from saved');
+      if (e.response) {
+        console.error('Error response status:', e.response.status);
+        console.error('Error response data:', e.response.data);
+      } else if (e.request) {
+        console.error('No response received:', e.request);
+      } else {
+        console.error('Error message:', e.message);
+      }
+      Alert.alert('Error', 'Failed to remove from saved restaurants');
     }
   };
 
@@ -182,6 +209,8 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       <TouchableOpacity 
         style={styles.removeButton}
         onPress={() => confirmRemove(item.restaurantId, item.restaurantName)}
+        activeOpacity={0.7}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Ionicons name="heart-dislike" size={24} color={COLORS.error} />
       </TouchableOpacity>
@@ -396,6 +425,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SIZES.padding.md,
     backgroundColor: COLORS.background,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.border,
+    width: 60,
   },
   chooseTournamentButton: {
     flexDirection: 'row',

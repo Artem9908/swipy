@@ -136,10 +136,7 @@ export default function AppNavigator() {
           name="RestaurantDetail" 
           component={RestaurantDetailScreen} 
           options={({ route }) => ({ 
-            title: route.params.restaurant.name,
-            headerTransparent: true,
-            headerTintColor: '#fff',
-            headerBackTitle: ' ',
+            headerShown: false,
           })}
         />
         <Stack.Screen 

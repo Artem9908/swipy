@@ -7,11 +7,13 @@ import {
   TouchableOpacity, 
   ScrollView, 
   Alert,
-  SafeAreaView
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 import ActionButton from '../components/ActionButton';
+import axios from 'axios';
 
 export default function ProfileScreen({ navigation, route }) {
   const { user } = route.params || {};
@@ -111,6 +113,45 @@ export default function ProfileScreen({ navigation, route }) {
           >
             <Ionicons name="restaurant-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
             <Text style={styles.menuText}>My Selected Restaurant</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              Alert.alert(
+                'Reset Swiped Restaurants',
+                'This will clear your swipe history and allow you to see restaurants you\'ve previously swiped left on. Restaurants in your favorites will still be excluded from Discover. Continue?',
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel'
+                  },
+                  {
+                    text: 'Reset History',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const apiUrl = Platform.OS === 'web' 
+                          ? `http://localhost:5001/api/users/${userData._id}/swiped` 
+                          : `http://192.168.0.82:5001/api/users/${userData._id}/swiped`;
+                          
+                        const response = await axios.delete(apiUrl);
+                        console.log('Cleared swipe history:', response.data);
+                        
+                        Alert.alert('Success', 'Your swipe history has been cleared. You can now see restaurants you previously swiped left on. Restaurants in your favorites will still be excluded from Discover.');
+                      } catch (error) {
+                        console.error('Error clearing swipe history:', error);
+                        Alert.alert('Error', 'Failed to clear swipe history. Please try again.');
+                      }
+                    }
+                  }
+                ]
+              );
+            }}
+          >
+            <Ionicons name="refresh-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
+            <Text style={styles.menuText}>Reset Swiped Restaurants</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
           </TouchableOpacity>
           

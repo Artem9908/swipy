@@ -163,6 +163,16 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       // Обновление локального состояния после успешного удаления
       setSavedRestaurants(prevState => prevState.filter(restaurant => restaurant.restaurantId !== restaurantId));
       
+      // Отправим уведомление об изменении в избранном 
+      // Так приложение сможет обновить фильтрацию в других экранах
+      Alert.alert(
+        'Удалено из избранного',
+        'Ресторан удалён из избранного. Теперь он может снова появиться во вкладке Discover.',
+        [
+          { text: 'OK' }
+        ]
+      );
+      
       // Небольшая задержка перед обновлением списка
       setTimeout(() => {
         fetchSavedRestaurants();
@@ -255,13 +265,13 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
     return (
       <SafeAreaView style={styles.emptyContainer}>
         <Ionicons name="heart-outline" size={80} color={COLORS.text.secondary} />
-        <Text style={styles.emptyText}>No saved restaurants</Text>
-        <Text style={styles.emptySubtext}>
+        <Text style={styles.emptyTitle}>No saved restaurants yet</Text>
+        <Text style={styles.emptyText}>
           Swipe right on restaurants you like to save them here
         </Text>
         <TouchableOpacity 
           style={styles.discoverButton} 
-          onPress={() => navigation.navigate('Main', { screen: 'Discover' })}
+          onPress={() => navigation.navigate('Discover', { user })}
         >
           <Text style={styles.discoverButtonText}>Discover Restaurants</Text>
         </TouchableOpacity>
@@ -288,6 +298,21 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
           ) : null
         )}
       />
+      
+      {/* Info card about restaurant history */}
+      <View style={styles.infoCard}>
+        <View style={styles.infoIconContainer}>
+          <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+        </View>
+        <View style={styles.infoTextContainer}>
+          <Text style={styles.infoTitle}>Restaurant History</Text>
+          <Text style={styles.infoText}>
+            We remember restaurants you've already swiped so you'll only see new options. 
+            Restaurants in your favorites also won't appear in Discover.
+            Need to start over? Go to your Profile and use "Reset Swiped Restaurants".
+          </Text>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -339,12 +364,12 @@ const styles = StyleSheet.create({
     padding: SIZES.padding.lg,
     backgroundColor: COLORS.background,
   },
-  emptyText: {
+  emptyTitle: {
     ...FONTS.h2,
     color: COLORS.text.secondary,
     marginTop: SIZES.padding.lg,
   },
-  emptySubtext: {
+  emptyText: {
     ...FONTS.body,
     color: COLORS.text.secondary,
     textAlign: 'center',
@@ -459,5 +484,32 @@ const styles = StyleSheet.create({
     color: COLORS.text.inverse,
     fontWeight: 'bold',
     marginLeft: SIZES.padding.sm,
+  },
+  infoCard: {
+    marginHorizontal: SIZES.padding.lg,
+    marginBottom: SIZES.padding.lg,
+    backgroundColor: COLORS.primary + '10',
+    borderRadius: SIZES.radius.md,
+    padding: SIZES.padding.md,
+    flexDirection: 'row',
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+    ...SHADOWS.small,
+  },
+  infoIconContainer: {
+    marginRight: SIZES.padding.sm,
+  },
+  infoTextContainer: {
+    flex: 1,
+  },
+  infoTitle: {
+    ...FONTS.h3,
+    color: COLORS.text.primary,
+    marginBottom: SIZES.padding.xs,
+  },
+  infoText: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
+    fontSize: 13,
   },
 });

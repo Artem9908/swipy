@@ -73,6 +73,9 @@ let userStatuses = {
 // Array to store users' selected restaurants (final choices)
 let selectedRestaurants = [];
 
+// Array to store users' swipe history
+let swipeHistory = [];
+
 // Функция для генерации уникальных идентификаторов
 function generateUniqueId() {
   return 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -94,7 +97,7 @@ app.post('/api/users/login', (req, res) => {
 // Получение списка ресторанов с Google Places API
 app.get('/api/restaurants', async (req, res) => {
   try {
-    const { location = 'New York', cuisine, price, rating, radius = 5000 } = req.query;
+    const { location = 'New York', cuisine, price, rating, radius = 5000, userId } = req.query;
     
     console.log('Запрос ресторанов с параметрами:', { location, cuisine, price, rating, radius });
     
@@ -197,6 +200,53 @@ app.get('/api/restaurants', async (req, res) => {
     
     // Сохраняем в кэш
     restaurantsCache[cacheKey] = restaurants;
+    
+    // Filter out swiped restaurants
+    if (userId) {
+      console.log(`Filtering restaurants for user: ${userId}`);
+      
+      // Get current time to check for expired swipes
+      const now = new Date().toISOString();
+      
+      // Get all valid swipes for this user
+      const userSwipes = swipeHistory.filter(
+        swipe => swipe.userId === userId && swipe.expiresAt > now
+      );
+      
+      // Get the list of restaurant IDs that have been swiped
+      const swipedRestaurantIds = userSwipes.map(swipe => swipe.restaurantId);
+      console.log(`Found ${swipedRestaurantIds.length} swiped restaurants`);
+      
+      // Get list of restaurants that are already liked by user
+      const userLikes = likes.filter(like => like.userId === userId)
+                             .map(like => like.restaurantId);
+      console.log(`Found ${userLikes.length} liked restaurants for user ${userId}`);
+      
+      // Combine swiped and liked restaurant IDs
+      const excludedRestaurantIds = [...new Set([...swipedRestaurantIds, ...userLikes])];
+      console.log(`Total ${excludedRestaurantIds.length} restaurants to exclude for user ${userId}`);
+      
+      if (userLikes.length > 0) {
+        console.log('Liked restaurant IDs to exclude:', userLikes);
+      }
+      
+      // Filter out both swiped and liked restaurants
+      const filteredRestaurants = restaurants.filter(restaurant => {
+        const restId = restaurant._id || restaurant.place_id;
+        const shouldShow = !excludedRestaurantIds.includes(restId);
+        if (!shouldShow && userLikes.includes(restId)) {
+          console.log(`Excluding restaurant ${restaurant.name} because it's in favorites`);
+        }
+        return shouldShow;
+      });
+      
+      // Randomize the order of restaurants
+      const randomizedRestaurants = filteredRestaurants.sort(() => 0.5 - Math.random());
+      
+      console.log(`Returning ${randomizedRestaurants.length} restaurants after filtering out ${restaurants.length - randomizedRestaurants.length} restaurants`);
+      
+      return res.json(randomizedRestaurants);
+    }
     
     return res.json(restaurants);
     
@@ -844,12 +894,15 @@ app.post('/api/users/:userId/likes', (req, res) => {
     location 
   } = req.body;
   
+  console.log(`Adding restaurant to likes - userId: ${userId}, restaurantId: ${restaurantId}, name: ${restaurantName}`);
+  
   // Check if already liked
   const existingLike = likes.find(like => 
     like.userId === userId && like.restaurantId === restaurantId
   );
   
   if (existingLike) {
+    console.log(`Restaurant ${restaurantId} already in likes for user ${userId}`);
     return res.json(existingLike);
   }
   
@@ -867,8 +920,53 @@ app.post('/api/users/:userId/likes', (req, res) => {
   };
   
   likes.push(newLike);
+  console.log(`Successfully added restaurant ${restaurantId} (${restaurantName}) to user ${userId}'s likes`);
+  console.log(`User now has ${likes.filter(like => like.userId === userId).length} liked restaurants`);
   
   return res.json(newLike);
+});
+
+// Diagnostic endpoint to check all likes data
+app.get('/api/diagnostic/likes', (req, res) => {
+  const likesInfo = {
+    totalLikes: likes.length,
+    likesByUser: {},
+    potentialIssues: []
+  };
+  
+  // Group likes by user
+  likes.forEach(like => {
+    if (!likesInfo.likesByUser[like.userId]) {
+      likesInfo.likesByUser[like.userId] = [];
+    }
+    likesInfo.likesByUser[like.userId].push({
+      restaurantId: like.restaurantId,
+      restaurantName: like.restaurantName,
+      timestamp: like.timestamp
+    });
+  });
+  
+  // Check for potential issues (duplicates, missing fields)
+  const userIds = Object.keys(likesInfo.likesByUser);
+  userIds.forEach(userId => {
+    const userLikes = likesInfo.likesByUser[userId];
+    
+    // Check for duplicate restaurantIds
+    const restaurantIds = userLikes.map(like => like.restaurantId);
+    const uniqueRestaurantIds = [...new Set(restaurantIds)];
+    
+    if (restaurantIds.length !== uniqueRestaurantIds.length) {
+      likesInfo.potentialIssues.push(`User ${userId} has duplicate restaurant IDs in likes`);
+    }
+    
+    // Check for missing restaurantIds
+    const missingIds = userLikes.filter(like => !like.restaurantId);
+    if (missingIds.length > 0) {
+      likesInfo.potentialIssues.push(`User ${userId} has ${missingIds.length} likes with missing restaurantId`);
+    }
+  });
+  
+  return res.json(likesInfo);
 });
 
 // Remove a restaurant from likes
@@ -1259,6 +1357,87 @@ app.get('/api/users/:userId/selected-restaurant', (req, res) => {
   }
   
   return res.json(selection);
+});
+
+// Add a swiped restaurant to history (for both likes and dislikes)
+app.post('/api/users/:userId/swiped', (req, res) => {
+  const { userId } = req.params;
+  const { restaurantId, restaurantName, direction } = req.body;
+  
+  if (!userId || !restaurantId) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  // Check if this restaurant is already in the user's swipe history
+  const existingSwipe = swipeHistory.find(
+    swipe => swipe.userId === userId && swipe.restaurantId === restaurantId
+  );
+  
+  if (existingSwipe) {
+    // If already swiped, just update the timestamp and direction
+    existingSwipe.timestamp = new Date().toISOString();
+    existingSwipe.direction = direction || existingSwipe.direction;
+    return res.json(existingSwipe);
+  }
+  
+  // Add new swipe to history
+  const newSwipe = {
+    userId,
+    restaurantId,
+    restaurantName: restaurantName || 'Unknown Restaurant',
+    direction: direction || 'left', // default to 'left' if not specified
+    timestamp: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // Expire after 14 days
+  };
+  
+  swipeHistory.push(newSwipe);
+  
+  return res.status(201).json(newSwipe);
+});
+
+// Check if a restaurant has been swiped before
+app.get('/api/users/:userId/swiped/:restaurantId', (req, res) => {
+  const { userId, restaurantId } = req.params;
+  
+  const swipe = swipeHistory.find(
+    swipe => swipe.userId === userId && swipe.restaurantId === restaurantId
+  );
+  
+  return res.json({ 
+    isSwiped: !!swipe,
+    direction: swipe ? swipe.direction : null
+  });
+});
+
+// Get all swiped restaurants for a user
+app.get('/api/users/:userId/swiped', (req, res) => {
+  const { userId } = req.params;
+  
+  // Filter expired swipe history
+  const now = new Date().toISOString();
+  const validSwipes = swipeHistory.filter(
+    swipe => swipe.userId === userId && swipe.expiresAt > now
+  );
+  
+  return res.json(validSwipes);
+});
+
+// Clear swipe history for a user
+app.delete('/api/users/:userId/swiped', (req, res) => {
+  const { userId } = req.params;
+  
+  // Count how many swipes will be deleted
+  const initialCount = swipeHistory.length;
+  
+  // Remove all swipes for this user
+  swipeHistory = swipeHistory.filter(swipe => swipe.userId !== userId);
+  
+  const deletedCount = initialCount - swipeHistory.length;
+  
+  return res.json({ 
+    success: true, 
+    message: `Cleared ${deletedCount} swipe records`
+  });
 });
 
 const PORT = process.env.PORT || 5001;

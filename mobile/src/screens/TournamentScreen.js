@@ -49,9 +49,9 @@ export default function TournamentScreen({ navigation, route }) {
     } else {
       // Not enough restaurants
       Alert.alert(
-        'Недостаточно ресторанов',
-        'Для выбора нужно как минимум 2 ресторана',
-        [{ text: 'Понятно', onPress: () => navigation.goBack() }]
+        'Not Enough Restaurants',
+        'You need at least 2 restaurants to make a choice',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     }
   }, []);
@@ -170,10 +170,10 @@ export default function TournamentScreen({ navigation, route }) {
     
     try {
       await Share.share({
-        message: `Я выбрал ресторан "${winner.restaurantName}" через Swipy! ${winner.location}`
+        message: `I chose "${winner.restaurantName}" restaurant via Swipy! ${winner.location}`
       });
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось поделиться рестораном');
+      Alert.alert('Error', 'Could not share the restaurant');
     }
   };
   
@@ -208,7 +208,7 @@ export default function TournamentScreen({ navigation, route }) {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.winnerContainer}>
-          <Text style={styles.winnerTitle}>Вот куда ты хочешь пойти сегодня 🎉</Text>
+          <Text style={styles.winnerTitle}>Here's where you want to go today 🎉</Text>
           
           <View style={styles.winnerCard}>
             <Image 
@@ -236,7 +236,7 @@ export default function TournamentScreen({ navigation, route }) {
               <View style={styles.winnerLocation}>
                 <Ionicons name="location-outline" size={16} color={COLORS.text.secondary} />
                 <Text style={styles.winnerLocationText} numberOfLines={2}>
-                  {winner.location || 'Адрес не указан'}
+                  {winner.location || 'Address not specified'}
                 </Text>
               </View>
             </View>
@@ -245,12 +245,12 @@ export default function TournamentScreen({ navigation, route }) {
           <View style={styles.winnerButtons}>
             <TouchableOpacity style={styles.mapButton} onPress={openOnMap}>
               <Ionicons name="map-outline" size={20} color={COLORS.text.inverse} />
-              <Text style={styles.buttonText}>Открыть на карте</Text>
+              <Text style={styles.buttonText}>Open on Map</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.shareButton} onPress={shareRestaurant}>
               <Ionicons name="share-social-outline" size={20} color={COLORS.text.inverse} />
-              <Text style={styles.buttonText}>Поделиться</Text>
+              <Text style={styles.buttonText}>Share</Text>
             </TouchableOpacity>
           </View>
           
@@ -258,7 +258,7 @@ export default function TournamentScreen({ navigation, route }) {
             style={styles.backButton} 
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>Вернуться</Text>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -270,7 +270,7 @@ export default function TournamentScreen({ navigation, route }) {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Подготовка турнира...</Text>
+          <Text style={styles.loadingText}>Preparing tournament...</Text>
         </View>
       </SafeAreaView>
     );
@@ -307,12 +307,12 @@ export default function TournamentScreen({ navigation, route }) {
         <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
           <Ionicons name="close" size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Выбор ресторана</Text>
+        <Text style={styles.headerTitle}>Restaurant Selection</Text>
         <View style={{ width: 24 }} />
       </View>
       
       <View style={styles.progressContainer}>
-        <Text style={styles.roundText}>Раунд {round} из {totalRounds}</Text>
+        <Text style={styles.roundText}>Round {round} of {totalRounds}</Text>
         <View style={styles.progressBar}>
           <View 
             style={[
@@ -323,7 +323,7 @@ export default function TournamentScreen({ navigation, route }) {
         </View>
       </View>
       
-      <Text style={styles.instructions}>Выберите ресторан, в который хотите пойти</Text>
+      <Text style={styles.instructions}>Choose the restaurant you want to visit</Text>
       
       <View style={styles.cardsContainer}>
         {/* Left Card */}

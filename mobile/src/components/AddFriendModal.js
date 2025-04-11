@@ -26,7 +26,7 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
 
   const addFriendByCode = async () => {
     if (!inviteCode.trim()) {
-      Alert.alert('Ошибка', 'Пожалуйста, введите код приглашения');
+      Alert.alert('Error', 'Please enter an invite code');
       return;
     }
 
@@ -41,15 +41,15 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
       });
       
       if (response.data.success) {
-        Alert.alert('Успех', 'Друг успешно добавлен!');
+        Alert.alert('Success', 'Friend added successfully!');
         setInviteCode('');
         onClose(true); // передаем true чтобы обновить список друзей
       } else {
-        Alert.alert('Ошибка', response.data.message || 'Не удалось добавить друга');
+        Alert.alert('Error', response.data.message || 'Could not add friend');
       }
     } catch (error) {
       console.error('Error adding friend by code:', error);
-      Alert.alert('Ошибка', 'Не удалось добавить друга. Проверьте код и попробуйте снова.');
+      Alert.alert('Error', 'Could not add friend. Check the code and try again.');
     }
   };
 
@@ -66,11 +66,11 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
         setGeneratedCode(response.data.code);
         setGeneratedLink(`swipy.app/invite/${response.data.code}`);
       } else {
-        Alert.alert('Ошибка', 'Не удалось сгенерировать код приглашения');
+        Alert.alert('Error', 'Could not generate invite code');
       }
     } catch (error) {
       console.error('Error generating invite code:', error);
-      Alert.alert('Ошибка', 'Не удалось сгенерировать код приглашения');
+      Alert.alert('Error', 'Could not generate invite code');
     } finally {
       setIsGenerating(false);
     }
@@ -78,28 +78,28 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
 
   const shareInviteLink = async () => {
     if (!generatedLink) {
-      Alert.alert('Ошибка', 'Сначала сгенерируйте код приглашения');
+      Alert.alert('Error', 'Please generate an invite code first');
       return;
     }
 
     try {
       await Share.share({
-        message: `Присоединяйся к Swipy и станем друзьями! Вот моя ссылка-приглашение: ${generatedLink}`,
+        message: `Join Swipy and let's be friends! Here's my invite link: ${generatedLink}`,
         url: generatedLink // только для iOS
       });
     } catch (error) {
       console.error('Error sharing invite link:', error);
-      Alert.alert('Ошибка', 'Не удалось поделиться ссылкой');
+      Alert.alert('Error', 'Could not share the link');
     }
   };
 
   const copyToClipboard = async (text) => {
     try {
       await Clipboard.setString(text);
-      Alert.alert('Успех', 'Скопировано в буфер обмена');
+      Alert.alert('Success', 'Copied to clipboard');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-      Alert.alert('Ошибка', 'Не удалось скопировать в буфер обмена');
+      Alert.alert('Error', 'Could not copy to clipboard');
     }
   };
 
@@ -114,7 +114,7 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Добавить друга</Text>
+              <Text style={styles.modalTitle}>Add a Friend</Text>
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                 <Ionicons name="close" size={24} color={COLORS.text.primary} />
               </TouchableOpacity>
@@ -126,7 +126,7 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
                 onPress={() => setActiveTab('code')}
               >
                 <Text style={[styles.tabText, activeTab === 'code' && styles.activeTabText]}>
-                  По коду
+                  By Code
                 </Text>
               </TouchableOpacity>
               
@@ -135,7 +135,7 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
                 onPress={() => setActiveTab('link')}
               >
                 <Text style={[styles.tabText, activeTab === 'link' && styles.activeTabText]}>
-                  Создать приглашение
+                  Create Invite
                 </Text>
               </TouchableOpacity>
             </View>
@@ -143,13 +143,13 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
             {activeTab === 'code' ? (
               <View style={styles.codeContainer}>
                 <Text style={styles.instructionText}>
-                  Введите код приглашения, полученный от друга
+                  Enter the invite code you received from a friend
                 </Text>
                 
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Например: swipy123"
+                    placeholder="Example: swipy123"
                     value={inviteCode}
                     onChangeText={setInviteCode}
                     autoCapitalize="none"
@@ -160,13 +160,13 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
                   style={styles.actionButton}
                   onPress={addFriendByCode}
                 >
-                  <Text style={styles.actionButtonText}>Добавить друга</Text>
+                  <Text style={styles.actionButtonText}>Add Friend</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.linkContainer}>
                 <Text style={styles.instructionText}>
-                  Создайте код приглашения и поделитесь им с друзьями
+                  Create an invite code and share it with your friends
                 </Text>
                 
                 {!generatedCode ? (
@@ -176,13 +176,13 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
                     disabled={isGenerating}
                   >
                     <Text style={styles.actionButtonText}>
-                      {isGenerating ? 'Генерация...' : 'Создать код приглашения'}
+                      {isGenerating ? 'Generating...' : 'Create Invite Code'}
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <>
                     <View style={styles.codeDisplay}>
-                      <Text style={styles.generatedCodeLabel}>Ваш код:</Text>
+                      <Text style={styles.generatedCodeLabel}>Your code:</Text>
                       <View style={styles.codeValueContainer}>
                         <Text style={styles.generatedCodeValue}>{generatedCode}</Text>
                         <TouchableOpacity 
@@ -195,7 +195,7 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
                     </View>
                     
                     <View style={styles.codeDisplay}>
-                      <Text style={styles.generatedCodeLabel}>Ссылка-приглашение:</Text>
+                      <Text style={styles.generatedCodeLabel}>Invite link:</Text>
                       <View style={styles.codeValueContainer}>
                         <Text style={styles.generatedLinkValue} numberOfLines={1} ellipsizeMode="middle">
                           {generatedLink}
@@ -214,7 +214,7 @@ const AddFriendModal = ({ visible, onClose, userId }) => {
                       onPress={shareInviteLink}
                     >
                       <Ionicons name="share-social-outline" size={20} color={COLORS.text.inverse} />
-                      <Text style={styles.actionButtonText}>Поделиться ссылкой</Text>
+                      <Text style={styles.actionButtonText}>Share Link</Text>
                     </TouchableOpacity>
                   </>
                 )}

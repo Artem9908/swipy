@@ -338,7 +338,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         type: 'restaurant',
         restaurantId: restaurant.place_id || restaurant._id,
         restaurantName: restaurant.name,
-        message: `Привет! Посмотри на этот ресторан: ${restaurant.name}. Думаю, тебе понравится!`
+        message: `Hi! Check out this restaurant: ${restaurant.name}. I think you'll like it!`
       }
     });
   };
@@ -496,14 +496,14 @@ export default function RestaurantDetailScreen({ route, navigation }) {
           
           <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
             <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.actionText}>Поделиться</Text>
+            <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
         </View>
         
         {/* Description */}
         {restaurant.description && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>О ресторане</Text>
+            <Text style={styles.sectionTitle}>About Restaurant</Text>
             <Text style={styles.description}>{restaurant.description}</Text>
           </View>
         )}
@@ -511,7 +511,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         {/* Matched Friends Section */}
         {user && user._id && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Ваши друзья здесь</Text>
+            <Text style={styles.sectionTitle}>Your Friends Here</Text>
             {loadingMatches ? (
               <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 10 }} />
             ) : matchedFriends.length > 0 ? (
@@ -538,7 +538,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
                         styles.friendStatusText, 
                         { color: friend.isOnline ? COLORS.success : COLORS.text.light }
                       ]}>
-                        {friend.isOnline ? 'Онлайн' : 'Оффлайн'}
+                        {friend.isOnline ? 'Online' : 'Offline'}
                       </Text>
                     </View>
                   </View>
@@ -547,7 +547,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
             ) : (
               <View style={styles.noMatchesContainer}>
                 <Text style={styles.noMatchesText}>
-                  Никто из ваших друзей еще не лайкнул этот ресторан. Поделитесь с ними!
+                  None of your friends have liked this restaurant yet. Share with them!
                 </Text>
                 <TouchableOpacity 
                   style={styles.shareWithFriendsButton}
@@ -557,7 +557,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
                   }}
                 >
                   <Ionicons name="share-social-outline" size={20} color={COLORS.text.inverse} />
-                  <Text style={styles.shareWithFriendsText}>Перейти к друзьям</Text>
+                  <Text style={styles.shareWithFriendsText}>Go to Friends</Text>
                 </TouchableOpacity>
               </View>
             )}

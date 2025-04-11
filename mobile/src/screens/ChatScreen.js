@@ -30,26 +30,33 @@ export default function ChatScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const flatListRef = useRef(null);
 
-  // Если переданы данные для шеринга, отправляем сообщение автоматически
-  useEffect(() => {
-    if (shareData && selectedFriend) {
-      sendShareMessage();
-    }
-  }, [selectedFriend]);
-
   useEffect(() => {
     console.log('Chat screen mounted, user:', user);
     
     // Проверка наличия данных о пользователе
     if (!user || !user._id) {
       console.log('No user data, stopping loading');
-      setError('Не удалось загрузить данные пользователя');
+      setError('Could not load user data');
       setLoading(false);
       return;
     }
     
     // Установка флага для предотвращения рекурсивных вызовов
     let isMounted = true;
+    
+    // Добавляем обработчик фокуса для обновления данных при возвращении на экран
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('Chat screen focused, refreshing data');
+      if (isMounted) {
+        fetchFriends()
+          .then(() => {
+            if (selectedFriend) {
+              fetchMessages(false);
+            }
+          })
+          .catch(err => console.error('Error refreshing on focus:', err));
+      }
+    });
     
     // Сначала загружаем друзей, затем чаты
     const loadInitialData = async () => {
@@ -60,13 +67,21 @@ export default function ChatScreen({ route, navigation }) {
         // Выход если компонент размонтирован
         if (!isMounted) return;
         
-        // Не запускаем fetchMessages в useEffect,
-        // чтобы избежать рекурсивных вызовов
+        // Для функционала "Поделиться" - если указан friendId, находим друга и устанавливаем его
         if (shareData && shareData.friendId) {
-          const friend = friendsList.find(f => f._id === shareData.friendId);
-          if (friend) {
-            setSelectedFriend(friend);
-            // fetchMessages будет вызван в useEffect при изменении selectedFriend
+          console.log('Share data detected, searching for friend with ID:', shareData.friendId);
+          // Находим друга в загруженном списке
+          const friendToSelect = friendsList.find(f => f._id === shareData.friendId);
+          if (friendToSelect) {
+            console.log('Friend found, setting as selected:', friendToSelect.name || friendToSelect.username);
+            setSelectedFriend(friendToSelect);
+            // Установка текста сообщения из shareData
+            if (shareData.message) {
+              setText(shareData.message);
+            }
+          } else {
+            console.log('Friend not found in the list, friendId:', shareData.friendId);
+            setError('Could not find the selected friend');
           }
         } else {
           await fetchMessages();
@@ -74,7 +89,7 @@ export default function ChatScreen({ route, navigation }) {
       } catch (err) {
         console.error('Failed to load initial data:', err);
         if (isMounted) {
-          setError('Не удалось загрузить данные. Проверьте подключение к серверу.');
+          setError('Could not load data. Please check your connection.');
           setLoading(false);
         }
       }
@@ -86,20 +101,30 @@ export default function ChatScreen({ route, navigation }) {
     // Очистка при размонтировании
     return () => {
       isMounted = false;
+      unsubscribeFocus();
     };
-  }, []);
+  }, [navigation]);
 
   useEffect(() => {
     if (selectedFriend) {
-      console.log('Selected friend changed to:', selectedFriend);
-      fetchMessages();
+      console.log('Selected friend changed to:', selectedFriend.name || selectedFriend.username);
+      
+      // Загрузка сообщений при выборе друга
+      fetchMessages(false);
+      
+      // Если есть данные для шеринга и выбран конкретный друг, отправляем сообщение автоматически
+      if (shareData && shareData.message) {
+        console.log('Will send share message for restaurant:', shareData.restaurantName);
+        // Немедленно отправляем сообщение
+        sendShareMessage();
+      }
       
       // Устанавливаем интервал для периодического обновления чата
       const chatRefreshInterval = setInterval(() => {
         if (selectedFriend) {
           fetchMessages(false); // не показываем индикатор загрузки при обновлении
         }
-      }, 5000); // обновляем каждые 5 секунд
+      }, 3000); // обновляем каждые 3 секунды
       
       // Очищаем интервал при размонтировании или смене друга
       return () => {
@@ -126,9 +151,19 @@ export default function ChatScreen({ route, navigation }) {
 
   // Отправить автоматическое сообщение с предложением ресторана
   const sendShareMessage = async () => {
-    if (!shareData || !selectedFriend || !user || !user._id) return;
+    if (!shareData || !selectedFriend || !user || !user._id) {
+      console.log('Cannot send share message - missing data', { 
+        hasShareData: !!shareData, 
+        hasSelectedFriend: !!selectedFriend, 
+        hasUser: !!user 
+      });
+      return;
+    }
     
     try {
+      console.log('Sending share message for restaurant:', shareData.restaurantName);
+      const message = shareData.message || `Hi! Check out this restaurant: ${shareData.restaurantName}. I think you'll like it!`;
+      
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/chat' 
         : 'http://192.168.0.82:5001/api/chat';
@@ -136,20 +171,37 @@ export default function ChatScreen({ route, navigation }) {
       const response = await axios.post(apiUrl, {
         userId: user._id,
         recipientId: selectedFriend._id,
-        text: shareData.message,
+        text: message,
         timestamp: new Date().toISOString()
       });
       
-      console.log('Share message sent:', response.data);
+      console.log('Share message sent successfully:', response.data);
+      
+      // Добавляем новое сообщение в список сразу, не дожидаясь обновления
+      const newMessage = response.data;
+      setMessages(prevMessages => [...prevMessages, newMessage]);
       
       // Очищаем данные шеринга, чтобы не отправлять повторно
       navigation.setParams({ shareData: null });
       setText('');
       
-      // Обновляем сообщения
-      fetchMessages();
+      // Прокручиваем к новому сообщению
+      if (flatListRef.current) {
+        setTimeout(() => {
+          flatListRef.current.scrollToEnd({ animated: true });
+        }, 100);
+      }
+      
+      // Показываем уведомление пользователю
+      Alert.alert(
+        'Success!',
+        `Message about ${shareData.restaurantName} restaurant has been sent`,
+        [{ text: 'OK' }],
+        { cancelable: true }
+      );
     } catch (e) {
       console.error('Error sending share message:', e);
+      Alert.alert('Error', 'Failed to send restaurant message');
     }
   };
 
@@ -166,7 +218,7 @@ export default function ChatScreen({ route, navigation }) {
       // Проверяем, что ответ является массивом
       if (!Array.isArray(res.data)) {
         console.error('Invalid friends data format, expected array');
-        setError('Ошибка формата данных. Пожалуйста, обновите приложение.');
+        setError('Invalid friends data format');
         return [];
       }
       
@@ -174,7 +226,7 @@ export default function ChatScreen({ route, navigation }) {
       return res.data;
     } catch (e) {
       console.error('Error fetching friends:', e);
-      setError('Не удалось загрузить список друзей. Проверьте подключение к серверу.');
+      setError('Could not load friends list');
       return [];
     }
   };
@@ -229,7 +281,7 @@ export default function ChatScreen({ route, navigation }) {
         // Проверяем, что ответ является массивом
         if (!Array.isArray(res.data)) {
           console.error('Invalid messages data format, expected array');
-          setError('Ошибка формата данных сообщений');
+          setError('Invalid messages data format');
           setLoading(false);
           return;
         }
@@ -302,7 +354,7 @@ export default function ChatScreen({ route, navigation }) {
     } catch (e) {
       if (e.message === 'Timeout') {
         console.error('Request timed out');
-        setError('Превышено время ожидания ответа от сервера');
+        setError('Request timed out');
       } else {
         console.error('Error fetching messages:', e);
       }
@@ -312,8 +364,14 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
+  // Улучшенная функция отправки обычного сообщения
   const sendMessage = async () => {
     if (!text.trim() || !selectedFriend || !user || !user._id) return;
+    
+    // Проверяем, не осталось ли shareData, и если есть - очищаем
+    if (shareData) {
+      navigation.setParams({ shareData: null });
+    }
     
     try {
       console.log('Sending message:', {
@@ -349,7 +407,7 @@ export default function ChatScreen({ route, navigation }) {
       }
     } catch (e) {
       console.error('Error sending message:', e);
-      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      Alert.alert('Error', 'Failed to send message');
     }
   };
 
@@ -383,7 +441,7 @@ export default function ChatScreen({ route, navigation }) {
       }
     } catch (error) {
       console.error('Error during refresh:', error);
-      setError('Не удалось обновить данные');
+      setError('Could not refresh data');
     } finally {
       setRefreshing(false);
     }
@@ -393,7 +451,7 @@ export default function ChatScreen({ route, navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Загрузка сообщений...</Text>
+        <Text style={styles.loadingText}>Loading messages...</Text>
       </View>
     );
   }
@@ -402,7 +460,7 @@ export default function ChatScreen({ route, navigation }) {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={80} color={COLORS.error} />
-        <Text style={styles.errorTitle}>Ошибка</Text>
+        <Text style={styles.errorTitle}>Error</Text>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity
           style={styles.retryButton}
@@ -411,10 +469,10 @@ export default function ChatScreen({ route, navigation }) {
             setLoading(true);
             fetchFriends()
               .then(() => fetchMessages())
-              .catch(err => setError('Не удалось подключиться к серверу'));
+              .catch(err => setError('Could not connect to server'));
           }}
         >
-          <Text style={styles.retryButtonText}>Повторить</Text>
+          <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -423,7 +481,7 @@ export default function ChatScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Чаты</Text>
+        <Text style={styles.title}>Chats</Text>
         {error && (
           <TouchableOpacity 
             style={styles.refreshButton} 
@@ -435,7 +493,7 @@ export default function ChatScreen({ route, navigation }) {
       </View>
       
       <View style={styles.friendsContainer}>
-        <Text style={styles.sectionTitle}>Ваши друзья</Text>
+        <Text style={styles.sectionTitle}>Your Friends</Text>
         {friends.length > 0 ? (
           <FlatList
             horizontal
@@ -505,13 +563,13 @@ export default function ChatScreen({ route, navigation }) {
         ) : (
           <View style={styles.noFriendsContainer}>
             <Text style={styles.noFriendsText}>
-              У вас пока нет друзей. Добавьте друзей, чтобы начать общение.
+              You don't have any friends yet. Add friends to start chatting.
             </Text>
             <TouchableOpacity
               style={styles.addFriendButton}
               onPress={() => navigation.navigate('Friends', { user })}
             >
-              <Text style={styles.addFriendButtonText}>Добавить друзей</Text>
+              <Text style={styles.addFriendButtonText}>Add Friends</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -520,8 +578,8 @@ export default function ChatScreen({ route, navigation }) {
       <View style={styles.messagesContainer}>
         <Text style={styles.sectionTitle}>
           {selectedFriend 
-            ? `Чат с ${selectedFriend.name || selectedFriend.username}` 
-            : 'Выберите друга для общения'}
+            ? `Chat with ${selectedFriend.name || selectedFriend.username}` 
+            : 'Select a friend to start chatting'}
         </Text>
         
         {selectedFriend ? (
@@ -577,7 +635,7 @@ export default function ChatScreen({ route, navigation }) {
                 
                 return (
                   <View style={styles.matchesContainer}>
-                    <Text style={styles.matchesTitle}>Совпадения с ресторанами</Text>
+                    <Text style={styles.matchesTitle}>Restaurant Matches</Text>
                     <FlatList 
                       horizontal
                       data={friendMatches}
@@ -619,12 +677,15 @@ export default function ChatScreen({ route, navigation }) {
                 style={styles.input}
                 value={text}
                 onChangeText={setText}
-                placeholder="Введите сообщение..."
+                placeholder="Type a message..."
                 placeholderTextColor={COLORS.text.light}
                 multiline
               />
               <TouchableOpacity 
-                style={styles.sendButton} 
+                style={[
+                  styles.sendButton,
+                  !text.trim() && styles.disabledButton
+                ]} 
                 onPress={sendMessage}
                 disabled={!text.trim()}
               >
@@ -639,9 +700,9 @@ export default function ChatScreen({ route, navigation }) {
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="chatbubbles-outline" size={80} color={COLORS.inactive} />
-            <Text style={styles.emptyTitle}>Беседа не выбрана</Text>
+            <Text style={styles.emptyTitle}>No Conversation Selected</Text>
             <Text style={styles.emptyText}>
-              Выберите друга из списка выше, чтобы начать общение
+              Select a friend from the list above to start chatting
             </Text>
           </View>
         )}
@@ -849,6 +910,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.small,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   emptyContainer: {
     flex: 1,

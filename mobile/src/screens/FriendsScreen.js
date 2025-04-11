@@ -31,7 +31,10 @@ export default function FriendsScreen({ navigation, route }) {
   
   useEffect(() => {
     if (shareMode) {
+      console.log('Entered share mode, refreshing friends list');
       setActiveTab('friends');
+      // Немедленно загружаем список друзей в режиме "Поделиться"
+      fetchFriends();
     }
   }, [shareMode]);
   
@@ -39,15 +42,16 @@ export default function FriendsScreen({ navigation, route }) {
     fetchUsers();
     fetchFriends();
     
-    // Обновляем статусы друзей каждые 15 секунд (чаще для более актуальной информации)
+    // Обновляем статусы друзей каждые 5 секунд (чаще для более актуальной информации)
     const statusInterval = setInterval(() => {
       if (friends.length > 0) {
         fetchFriendsStatus();
       }
-    }, 15000);
+    }, 5000);
     
     // Обновляем данные при возвращении на экран
     const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Friends screen focused, refreshing data');
       fetchFriends();
       if (friends.length > 0) {
         fetchFriendsStatus();
@@ -164,24 +168,24 @@ export default function FriendsScreen({ navigation, route }) {
       await axios.post(apiUrl, { userId: user._id, friendId });
       // Обновляем список друзей
       fetchFriends();
-      Alert.alert('Успех', 'Друг успешно добавлен!');
+      Alert.alert('Success', 'Friend added successfully!');
     } catch (e) {
       console.error('Error adding friend:', e);
-      Alert.alert('Ошибка', 'Не удалось добавить друга. Попробуйте еще раз.');
+      Alert.alert('Error', 'Could not add friend. Please try again.');
     }
   };
 
   const removeFriend = async (friendId) => {
     Alert.alert(
-      'Удаление друга',
-      'Вы уверены, что хотите удалить этого друга?',
+      'Remove Friend',
+      'Are you sure you want to remove this friend?',
       [
         {
-          text: 'Отмена',
+          text: 'Cancel',
           style: 'cancel'
         },
         {
-          text: 'Удалить',
+          text: 'Remove',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -194,7 +198,7 @@ export default function FriendsScreen({ navigation, route }) {
               fetchFriends();
             } catch (e) {
               console.error('Error removing friend:', e);
-              Alert.alert('Ошибка', 'Не удалось удалить друга. Попробуйте еще раз.');
+              Alert.alert('Error', 'Could not remove friend. Please try again.');
             }
           }
         }
@@ -227,23 +231,23 @@ export default function FriendsScreen({ navigation, route }) {
     
     if (status.isOnline) {
       return {
-        text: 'Онлайн',
+        text: 'Online',
         color: COLORS.success
       };
     } else if (status.lastSwipedAt && new Date(status.lastSwipedAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)) {
       return {
-        text: 'Недавно свайпал',
+        text: 'Recently active',
         color: COLORS.warning
       };
     } else if (status.hasMatches) {
       return {
-        text: 'Есть совпадения',
+        text: 'Has matches',
         color: COLORS.primary
       };
     }
     
     return {
-      text: 'Оффлайн',
+      text: 'Offline',
       color: COLORS.text.light
     };
   };
@@ -252,17 +256,34 @@ export default function FriendsScreen({ navigation, route }) {
     if (!shareData) return;
     
     try {
-      // Переходим на экран чата с выбранным другом
-      navigation.navigate('Chat', { 
-        user,
-        shareData: {
-          ...shareData,
-          friendId // Передаем ID друга
-        }
-      });
+      console.log('Sharing with friend ID:', friendId, 'Data:', shareData);
+      
+      // Показываем краткий индикатор нажатия
+      const friend = friends.find(f => f._id === friendId);
+      const friendName = friend ? (friend.name || friend.username) : 'selected friend';
+      
+      Alert.alert(
+        'Sending',
+        `Opening chat with ${friendName}...`,
+        [],
+        { cancelable: false }
+      );
+      
+      // Небольшая задержка, чтобы пользователь увидел уведомление
+      setTimeout(() => {
+        // Переходим на экран чата с выбранным другом
+        navigation.navigate('Chat', { 
+          user,
+          friend: friends.find(f => f._id === friendId), // Передаем весь объект друга
+          shareData: {
+            ...shareData,
+            friendId
+          }
+        });
+      }, 800);
     } catch (error) {
       console.error('Error navigating to chat:', error);
-      Alert.alert('Ошибка', 'Не удалось перейти к чату');
+      Alert.alert('Error', 'Could not open chat');
     }
   };
 
@@ -293,7 +314,10 @@ export default function FriendsScreen({ navigation, route }) {
             style={styles.shareButton}
             onPress={() => shareWithFriend(item._id)}
           >
-            <Ionicons name="share-social" size={20} color={COLORS.text.inverse} />
+            <View style={styles.shareButtonContent}>
+              <Ionicons name="share-social" size={20} color={COLORS.text.inverse} />
+              <Text style={styles.shareButtonText}>Send</Text>
+            </View>
           </TouchableOpacity>
         ) : (
           <>
@@ -338,7 +362,7 @@ export default function FriendsScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>
-          {shareMode ? 'Поделиться с другом' : 'Друзья'}
+          {shareMode ? 'Share with a Friend' : 'Friends'}
         </Text>
         {!shareMode && (
           <TouchableOpacity 
@@ -346,7 +370,7 @@ export default function FriendsScreen({ navigation, route }) {
             onPress={() => setAddFriendModalVisible(true)}
           >
             <Ionicons name="person-add" size={20} color={COLORS.text.inverse} />
-            <Text style={styles.addFriendButtonText}>Добавить друга</Text>
+            <Text style={styles.addFriendButtonText}>Add Friend</Text>
           </TouchableOpacity>
         )}
         {shareMode && (
@@ -354,7 +378,7 @@ export default function FriendsScreen({ navigation, route }) {
             style={styles.cancelButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.cancelButtonText}>Отмена</Text>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -363,7 +387,7 @@ export default function FriendsScreen({ navigation, route }) {
         <Ionicons name="search" size={20} color={COLORS.text.secondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Поиск по имени или нику"
+          placeholder="Search by name or username"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -389,7 +413,7 @@ export default function FriendsScreen({ navigation, route }) {
               activeTab === 'friends' && styles.activeTabText
             ]}
           >
-            Мои друзья
+            My Friends
           </Text>
         </TouchableOpacity>
         <TouchableOpacity 
@@ -408,7 +432,7 @@ export default function FriendsScreen({ navigation, route }) {
               shareMode && styles.disabledTabText
             ]}
           >
-            Поиск
+            Discover
           </Text>
         </TouchableOpacity>
       </View>
@@ -416,7 +440,7 @@ export default function FriendsScreen({ navigation, route }) {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Загрузка...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       ) : (
         <FlatList
@@ -441,13 +465,13 @@ export default function FriendsScreen({ navigation, route }) {
               />
               <Text style={styles.emptyTitle}>
                 {activeTab === 'friends' 
-                  ? 'У вас пока нет друзей' 
-                  : 'Пользователи не найдены'}
+                  ? 'You have no friends yet' 
+                  : 'No users found'}
               </Text>
               <Text style={styles.emptyText}>
                 {activeTab === 'friends' 
-                  ? 'Добавьте друзей, чтобы видеть их здесь' 
-                  : 'Попробуйте изменить параметры поиска'}
+                  ? 'Add friends to see them here' 
+                  : 'Try changing your search parameters'}
               </Text>
             </View>
           }
@@ -627,12 +651,22 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     padding: SIZES.padding.sm,
-    borderRadius: SIZES.radius.round,
+    borderRadius: SIZES.radius.md,
     backgroundColor: COLORS.primary,
-    width: 40,
-    height: 40,
+    minWidth: 100,
     justifyContent: 'center',
     alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  shareButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareButtonText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
+    fontWeight: 'bold',
+    marginLeft: SIZES.padding.xs,
   },
   cancelButton: {
     padding: SIZES.padding.sm,

@@ -635,10 +635,19 @@ export default function ChatScreen({ route, navigation }) {
                 
                 return (
                   <View style={styles.matchesContainer}>
-                    <Text style={styles.matchesTitle}>Restaurant Matches</Text>
+                    <View style={styles.matchesHeader}>
+                      <Text style={styles.matchesTitle}>Restaurant Matches</Text>
+                      {friendMatches.length > 3 && (
+                        <TouchableOpacity
+                          onPress={() => navigation.navigate('Matches', { user, initialFriendId: selectedFriend._id })}
+                        >
+                          <Text style={styles.viewAllText}>View all</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <FlatList 
                       horizontal
-                      data={friendMatches}
+                      data={friendMatches.slice(0, 3)} // Show only first 3 matches
                       keyExtractor={(item) => item.restaurantId}
                       renderItem={({ item }) => (
                         <TouchableOpacity 
@@ -956,10 +965,15 @@ const styles = StyleSheet.create({
   matchesContainer: {
     padding: SIZES.padding.md,
   },
+  matchesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.sm,
+  },
   matchesTitle: {
     ...FONTS.h3,
     color: COLORS.text.primary,
-    marginBottom: SIZES.padding.sm,
   },
   matchesList: {
     paddingHorizontal: SIZES.padding.md,
@@ -1009,5 +1023,10 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius.round,
     backgroundColor: COLORS.card,
     ...SHADOWS.small,
+  },
+  viewAllText: {
+    ...FONTS.body,
+    color: COLORS.primary,
+    fontWeight: 'bold',
   },
 });

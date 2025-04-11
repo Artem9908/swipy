@@ -20,6 +20,7 @@ import ReservationsListScreen from '../screens/ReservationsListScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import SavedRestaurantsScreen from '../screens/SavedRestaurantsScreen';
 import TournamentScreen from '../screens/TournamentScreen';
+import MatchesScreen from '../screens/MatchesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -87,6 +88,8 @@ function MainTabs({ route }) {
             iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Friends') {
             iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Matches') {
+            iconName = focused ? 'heart' : 'heart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -135,6 +138,11 @@ function MainTabs({ route }) {
       <Tab.Screen 
         name="Friends" 
         component={FriendsScreen}
+        initialParams={{ user }}
+      />
+      <Tab.Screen 
+        name="Matches" 
+        component={MatchesScreen}
         initialParams={{ user }}
       />
       <Tab.Screen 

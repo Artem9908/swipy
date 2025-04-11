@@ -241,7 +241,7 @@ export default function FriendsScreen({ navigation, route }) {
       };
     } else if (status.hasMatches) {
       return {
-        text: 'Has matches',
+        text: 'Has restaurant matches',
         color: COLORS.primary
       };
     }
@@ -338,12 +338,22 @@ export default function FriendsScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
             {activeTab === 'friends' && !shareMode && (
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => removeFriend(item._id)}
-              >
-                <Ionicons name="person-remove" size={20} color={COLORS.error} />
-              </TouchableOpacity>
+              <View style={styles.actionsContainer}>
+                {status && status.text === 'Has restaurant matches' && (
+                  <TouchableOpacity 
+                    style={styles.matchButton}
+                    onPress={() => navigation.navigate('Matches', { user, initialFriendId: item._id })}
+                  >
+                    <Ionicons name="restaurant" size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => removeFriend(item._id)}
+                >
+                  <Ionicons name="person-remove" size={20} color={COLORS.error} />
+                </TouchableOpacity>
+              </View>
             )}
           </>
         )}
@@ -684,5 +694,17 @@ const styles = StyleSheet.create({
   },
   disabledTabText: {
     color: COLORS.text.light,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  matchButton: {
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.round,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginRight: SIZES.padding.xs,
+    backgroundColor: COLORS.primary + '10', // 10% opacity
   },
 }); 

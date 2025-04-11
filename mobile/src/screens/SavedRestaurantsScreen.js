@@ -234,6 +234,17 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
         renderItem={renderRestaurantItem}
         keyExtractor={item => item.restaurantId}
         contentContainerStyle={styles.listContainer}
+        ListFooterComponent={() => (
+          savedRestaurants.length >= 2 ? (
+            <TouchableOpacity 
+              style={styles.chooseTournamentButton} 
+              onPress={() => navigation.navigate('Tournament', { user, savedRestaurants })}
+            >
+              <Ionicons name="trophy-outline" size={20} color={COLORS.text.inverse} />
+              <Text style={styles.chooseTournamentText}>Выбрать один</Text>
+            </TouchableOpacity>
+          ) : null
+        )}
       />
     </SafeAreaView>
   );
@@ -385,5 +396,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SIZES.padding.md,
     backgroundColor: COLORS.background,
+  },
+  chooseTournamentButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SIZES.padding.lg,
+    marginBottom: SIZES.padding.xl,
+    marginHorizontal: SIZES.padding.md,
+    ...SHADOWS.medium,
+  },
+  chooseTournamentText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
+    fontWeight: 'bold',
+    marginLeft: SIZES.padding.sm,
   },
 });

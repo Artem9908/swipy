@@ -17,6 +17,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import ReservationsListScreen from '../screens/ReservationsListScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import SavedRestaurantsScreen from '../screens/SavedRestaurantsScreen';
+import TournamentScreen from '../screens/TournamentScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -157,6 +158,11 @@ export default function AppNavigator() {
           name="SavedRestaurants" 
           component={SavedRestaurantsScreen} 
           options={{ title: 'Favorite Restaurants' }}
+        />
+        <Stack.Screen 
+          name="Tournament" 
+          component={TournamentScreen} 
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>

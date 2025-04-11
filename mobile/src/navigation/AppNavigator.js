@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
+import axios from 'axios';
+import { Platform, AppState } from 'react-native';
 
 // Импортируем экраны
 import LoginScreen from '../screens/LoginScreen';
@@ -28,6 +30,48 @@ function MainTabs({ route }) {
   
   // Log user data to verify it's being passed correctly
   console.log("MainTabs received user data:", user);
+  
+  // Обновление онлайн-статуса пользователя
+  useEffect(() => {
+    if (!user || !user._id) return;
+    
+    // Начальное обновление статуса (пользователь онлайн)
+    updateUserOnlineStatus(user._id, true);
+    
+    // Настройка слушателя состояния приложения
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      nextAppState => {
+        // Обновляем статус в зависимости от состояния приложения
+        const isOnline = nextAppState === 'active';
+        updateUserOnlineStatus(user._id, isOnline);
+      }
+    );
+    
+    // Регулярное обновление статуса, пока приложение активно
+    const heartbeatInterval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        updateUserOnlineStatus(user._id, true);
+      }
+    }, 60000); // Каждую минуту обновляем статус
+    
+    // Очистка при размонтировании
+    return () => {
+      updateUserOnlineStatus(user._id, false);
+      appStateSubscription.remove();
+      clearInterval(heartbeatInterval);
+    };
+  }, [user]);
+  
+  // Функция для обновления онлайн-статуса
+  const updateUserOnlineStatus = (userId, isOnline) => {
+    const statusApiUrl = Platform.OS === 'web' 
+      ? `http://localhost:5001/api/users/${userId}/status` 
+      : `http://192.168.0.82:5001/api/users/${userId}/status`;
+      
+    axios.put(statusApiUrl, { isOnline })
+      .catch(e => console.error('Error updating online status:', e));
+  };
   
   return (
     <Tab.Navigator

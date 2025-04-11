@@ -29,6 +29,12 @@ let friends = [
   { userId: '2', friendId: '1' }
 ];
 let reviews = {};
+let inviteCodes = [];
+let userStatuses = {
+  '1': { isOnline: true, lastSwipedAt: new Date().toISOString(), hasMatches: true },
+  '2': { isOnline: false, lastSwipedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), hasMatches: false },
+  '3': { isOnline: false, lastSwipedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), hasMatches: true }
+};
 
 // Маршруты API
 app.post('/api/users/login', (req, res) => {
@@ -804,6 +810,151 @@ app.delete('/api/users/:userId/likes/:restaurantId', (req, res) => {
   const removedLike = likes.splice(likeIndex, 1)[0];
   
   return res.json(removedLike);
+});
+
+// API для работы с инвайт-кодами и статусами пользователей
+
+// Генерация инвайт-кода
+app.get('/api/friends/generate-code/:userId', (req, res) => {
+  const { userId } = req.params;
+  
+  // Проверяем, есть ли уже активный код для пользователя
+  const existingCode = inviteCodes.find(code => code.userId === userId && !code.isUsed);
+  
+  if (existingCode) {
+    return res.json({ code: existingCode.code });
+  }
+  
+  // Генерируем уникальный код
+  const generateUniqueCode = () => {
+    const prefix = 'swipy';
+    const randomDigits = Math.floor(100 + Math.random() * 900); // 3-значное число
+    const randomChars = Math.random().toString(36).substring(2, 5); // 3 случайных символа
+    return `${prefix}${randomDigits}${randomChars}`;
+  };
+  
+  let newCode = generateUniqueCode();
+  // Проверяем, что код уникальный
+  while (inviteCodes.some(code => code.code === newCode)) {
+    newCode = generateUniqueCode();
+  }
+  
+  // Сохраняем код
+  const inviteCode = {
+    code: newCode,
+    userId,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Срок действия 7 дней
+    isUsed: false
+  };
+  
+  inviteCodes.push(inviteCode);
+  
+  return res.json({ code: newCode });
+});
+
+// Добавление друга по коду
+app.post('/api/friends/add-by-code', (req, res) => {
+  const { userId, inviteCode } = req.body;
+  
+  // Находим инвайт-код
+  const code = inviteCodes.find(code => 
+    code.code === inviteCode && 
+    !code.isUsed && 
+    new Date(code.expiresAt) > new Date()
+  );
+  
+  if (!code) {
+    return res.status(404).json({ 
+      success: false, 
+      message: 'Код не найден или истек срок его действия' 
+    });
+  }
+  
+  // Проверяем, что пользователь не пытается добавить сам себя
+  if (code.userId === userId) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Вы не можете добавить себя в друзья' 
+    });
+  }
+  
+  // Проверяем, что пользователи еще не друзья
+  const alreadyFriends = friends.some(
+    f => (f.userId === userId && f.friendId === code.userId) ||
+         (f.userId === code.userId && f.friendId === userId)
+  );
+  
+  if (alreadyFriends) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Вы уже являетесь друзьями с этим пользователем' 
+    });
+  }
+  
+  // Добавляем дружбу в обе стороны
+  friends.push({ userId, friendId: code.userId });
+  friends.push({ userId: code.userId, friendId: userId });
+  
+  // Отмечаем код как использованный
+  code.isUsed = true;
+  code.usedBy = userId;
+  code.usedAt = new Date().toISOString();
+  
+  return res.json({ 
+    success: true, 
+    message: 'Друг успешно добавлен',
+    friend: users.find(user => user._id === code.userId)
+  });
+});
+
+// Получение статусов пользователей
+app.post('/api/users/status', (req, res) => {
+  const { userIds } = req.body;
+  
+  if (!userIds || !Array.isArray(userIds)) {
+    return res.status(400).json({ error: 'Неверный формат запроса' });
+  }
+  
+  const statuses = userIds.map(userId => {
+    const status = userStatuses[userId] || {
+      isOnline: false,
+      lastSwipedAt: null,
+      hasMatches: false
+    };
+    
+    return {
+      userId,
+      ...status
+    };
+  });
+  
+  return res.json(statuses);
+});
+
+// Обновление статуса пользователя
+app.put('/api/users/:userId/status', (req, res) => {
+  const { userId } = req.params;
+  const { isOnline, lastSwipedAt, hasMatches } = req.body;
+  
+  // Инициализируем статус, если его еще нет
+  if (!userStatuses[userId]) {
+    userStatuses[userId] = {
+      isOnline: false,
+      lastSwipedAt: null,
+      hasMatches: false
+    };
+  }
+  
+  // Обновляем статус
+  if (isOnline !== undefined) userStatuses[userId].isOnline = isOnline;
+  if (lastSwipedAt !== undefined) userStatuses[userId].lastSwipedAt = lastSwipedAt;
+  if (hasMatches !== undefined) userStatuses[userId].hasMatches = hasMatches;
+  
+  return res.json({ 
+    success: true, 
+    status: userStatuses[userId] 
+  });
 });
 
 const PORT = process.env.PORT || 5001;

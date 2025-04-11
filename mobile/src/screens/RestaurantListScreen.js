@@ -162,6 +162,9 @@ export default function RestaurantListScreen({ navigation, route }) {
             location: restaurant.address || restaurant.location
           })
           .catch(e => console.error('Error saving like:', e));
+          
+          // Update user's lastSwipedAt status
+          updateUserSwipeStatus(user._id);
         }
       }
       
@@ -183,6 +186,11 @@ export default function RestaurantListScreen({ navigation, route }) {
       const restaurant = restaurants[currentIndex];
       if (restaurant) {
         console.log('Disliked restaurant:', restaurant.name);
+        
+        // Update user's lastSwipedAt status
+        if (user && user._id) {
+          updateUserSwipeStatus(user._id);
+        }
       }
       
       // Move to next card immediately
@@ -231,6 +239,19 @@ export default function RestaurantListScreen({ navigation, route }) {
     console.log('Viewing restaurant details:', restaurant.name);
     console.log('Restaurant ID:', restaurant.place_id || restaurant._id);
     navigation.navigate('RestaurantDetail', { restaurant, user });
+  };
+
+  // Function to update user's swipe status
+  const updateUserSwipeStatus = (userId) => {
+    const statusApiUrl = Platform.OS === 'web' 
+      ? `http://localhost:5001/api/users/${userId}/status` 
+      : `http://192.168.0.82:5001/api/users/${userId}/status`;
+      
+    axios.put(statusApiUrl, { 
+      isOnline: true,
+      lastSwipedAt: new Date().toISOString()
+    })
+    .catch(e => console.error('Error updating swipe status:', e));
   };
 
   if (loading) {

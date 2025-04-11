@@ -29,11 +29,18 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
+  const [matchedFriends, setMatchedFriends] = useState([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
   
   useEffect(() => {
     console.log("Initial restaurant data:", JSON.stringify(initialRestaurant, null, 2));
     fetchRestaurantDetails();
     checkIfLiked();
+    
+    // Проверяем друзей, которые лайкнули этот ресторан
+    if (user && user._id && (initialRestaurant.place_id || initialRestaurant._id)) {
+      fetchMatchedFriends();
+    }
   }, []);
   
   const fetchRestaurantDetails = async () => {
@@ -244,6 +251,98 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     }
   };
   
+  // Получить друзей, лайкнувших этот ресторан
+  const fetchMatchedFriends = async () => {
+    try {
+      setLoadingMatches(true);
+      const restaurantId = initialRestaurant.place_id || initialRestaurant._id;
+      
+      const apiUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/matches/${user._id}/${restaurantId}` 
+        : `http://192.168.0.82:5001/api/matches/${user._id}/${restaurantId}`;
+      
+      const response = await axios.get(apiUrl);
+      
+      if (response.data && response.data.matches && response.data.matches.length > 0) {
+        // Получаем информацию о пользователях
+        const friendsApiUrl = Platform.OS === 'web' 
+          ? `http://localhost:5001/api/users/status` 
+          : `http://192.168.0.82:5001/api/users/status`;
+        
+        const friendsResponse = await axios.post(friendsApiUrl, { 
+          userIds: response.data.matches 
+        });
+        
+        // Объединяем информацию о пользователях со статусами
+        const usersApiUrl = Platform.OS === 'web' 
+          ? `http://localhost:5001/api/users/${user._id}/friends` 
+          : `http://192.168.0.82:5001/api/users/${user._id}/friends`;
+        
+        const usersResponse = await axios.get(usersApiUrl);
+        
+        // Формируем список друзей с их статусами
+        const friendsWithStatus = response.data.matches.map(friendId => {
+          const friendData = usersResponse.data.find(u => u._id === friendId) || { 
+            _id: friendId, 
+            name: 'Unknown User', 
+            username: 'unknown' 
+          };
+          
+          const friendStatus = friendsResponse.data.find(s => s.userId === friendId) || {
+            isOnline: false,
+            lastSwipedAt: null
+          };
+          
+          return {
+            ...friendData,
+            ...friendStatus
+          };
+        });
+        
+        setMatchedFriends(friendsWithStatus);
+        
+        // Обновляем статус пользователя (есть совпадения)
+        updateUserMatchStatus(true);
+      } else {
+        setMatchedFriends([]);
+        // Обновляем статус пользователя (нет совпадений)
+        updateUserMatchStatus(false);
+      }
+    } catch (error) {
+      console.error('Error fetching matched friends:', error);
+      setMatchedFriends([]);
+    } finally {
+      setLoadingMatches(false);
+    }
+  };
+  
+  // Обновить статус пользователя (наличие совпадений)
+  const updateUserMatchStatus = async (hasMatches) => {
+    try {
+      const statusApiUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/users/${user._id}/status` 
+        : `http://192.168.0.82:5001/api/users/${user._id}/status`;
+        
+      await axios.put(statusApiUrl, { hasMatches });
+    } catch (error) {
+      console.error('Error updating match status:', error);
+    }
+  };
+  
+  const shareWithFriend = () => {
+    // Переходим на экран друзей с параметрами для шеринга
+    navigation.navigate('Friends', { 
+      user,
+      shareMode: true,
+      shareData: {
+        type: 'restaurant',
+        restaurantId: restaurant.place_id || restaurant._id,
+        restaurantName: restaurant.name,
+        message: `Привет! Посмотри на этот ресторан: ${restaurant.name}. Думаю, тебе понравится!`
+      }
+    });
+  };
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -394,32 +493,141 @@ export default function RestaurantDetailScreen({ route, navigation }) {
             />
             <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
+            <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
+            <Text style={styles.actionText}>Поделиться</Text>
+          </TouchableOpacity>
         </View>
         
         {/* Description */}
         {restaurant.description && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>О ресторане</Text>
             <Text style={styles.description}>{restaurant.description}</Text>
           </View>
         )}
         
+        {/* Matched Friends Section */}
+        {user && user._id && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Ваши друзья здесь</Text>
+            {loadingMatches ? (
+              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 10 }} />
+            ) : matchedFriends.length > 0 ? (
+              <View style={styles.matchedFriendsContainer}>
+                {matchedFriends.map(friend => (
+                  <View key={friend._id} style={styles.matchedFriendItem}>
+                    <Image
+                      source={{ uri: friend.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name)}&background=4ecdc4&color=fff` }}
+                      style={styles.friendAvatar}
+                    />
+                    <View style={styles.friendInfo}>
+                      <Text style={styles.friendName}>{friend.name}</Text>
+                      <Text style={styles.friendUsername}>@{friend.username}</Text>
+                    </View>
+                    <View style={[
+                      styles.friendStatusBadge, 
+                      { backgroundColor: friend.isOnline ? COLORS.success + '20' : COLORS.text.light + '20' }
+                    ]}>
+                      <View style={[
+                        styles.friendStatusDot, 
+                        { backgroundColor: friend.isOnline ? COLORS.success : COLORS.text.light }
+                      ]} />
+                      <Text style={[
+                        styles.friendStatusText, 
+                        { color: friend.isOnline ? COLORS.success : COLORS.text.light }
+                      ]}>
+                        {friend.isOnline ? 'Онлайн' : 'Оффлайн'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.noMatchesContainer}>
+                <Text style={styles.noMatchesText}>
+                  Никто из ваших друзей еще не лайкнул этот ресторан. Поделитесь с ними!
+                </Text>
+                <TouchableOpacity 
+                  style={styles.shareWithFriendsButton}
+                  onPress={() => {
+                    // Реализовать функцию отправки сообщения другу
+                    navigation.navigate('Friends');
+                  }}
+                >
+                  <Ionicons name="share-social-outline" size={20} color={COLORS.text.inverse} />
+                  <Text style={styles.shareWithFriendsText}>Перейти к друзьям</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+        
         {/* Reviews */}
-        {reviews.length > 0 && (
-          <View style={styles.section}>
+        {reviews && reviews.length > 0 && (
+          <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Reviews</Text>
-            {reviews.map((review, index) => (
+            {reviews.slice(0, 3).map((review, index) => (
               <View key={index} style={styles.reviewContainer}>
                 <View style={styles.reviewHeader}>
-                  <Text style={styles.reviewAuthor}>{review.author || 'Anonymous'}</Text>
+                  <Text style={styles.reviewAuthor}>{review.author_name || "Anonymous"}</Text>
                   <View style={styles.reviewRating}>
-                    <Ionicons name="star" size={16} color={COLORS.warning} />
-                    <Text style={styles.reviewRatingText}>{review.rating}</Text>
+                    {[...Array(5)].map((_, i) => (
+                      <Ionicons 
+                        key={i}
+                        name={i < Math.round(review.rating) ? "star" : "star-outline"} 
+                        size={16} 
+                        color={COLORS.warning} 
+                        style={{ marginRight: 2 }}
+                      />
+                    ))}
                   </View>
                 </View>
                 <Text style={styles.reviewText}>{review.text}</Text>
+                <Text style={styles.reviewDate}>{new Date(review.time * 1000).toLocaleDateString()}</Text>
               </View>
             ))}
+            {reviews.length > 3 && (
+              <TouchableOpacity style={styles.moreButton}>
+                <Text style={styles.moreButtonText}>View all {reviews.length} reviews</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        
+        {/* Menu Section */}
+        {restaurant.menu && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Menu</Text>
+            {restaurant.menu.map((category, index) => (
+              <View key={index} style={styles.menuCategory}>
+                <Text style={styles.menuCategoryTitle}>{category.category}</Text>
+                {category.items.map((item, itemIndex) => (
+                  <View key={itemIndex} style={styles.menuItem}>
+                    <View style={styles.menuItemHeader}>
+                      <Text style={styles.menuItemName}>{item.name}</Text>
+                      <Text style={styles.menuItemPrice}>${item.price.toFixed(2)}</Text>
+                    </View>
+                    <Text style={styles.menuItemDescription}>{item.description}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+        
+        {/* Map Section */}
+        {restaurant.coordinates && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Location</Text>
+            <TouchableOpacity 
+              style={styles.mapPlaceholder}
+              onPress={getDirections}
+            >
+              <Ionicons name="map-outline" size={60} color={COLORS.primary} />
+              <Text style={styles.mapText}>Open in Maps</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -607,7 +815,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     marginTop: SIZES.padding.xs,
   },
-  section: {
+  sectionContainer: {
     marginBottom: SIZES.padding.lg,
   },
   sectionTitle: {
@@ -660,5 +868,125 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
     zIndex: 1
-  }
+  },
+  matchedFriendsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  matchedFriendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: SIZES.padding.sm,
+    marginBottom: SIZES.padding.sm,
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: SIZES.padding.sm,
+  },
+  friendInfo: {
+    flexDirection: 'column',
+  },
+  friendName: {
+    ...FONTS.body,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+  },
+  friendUsername: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
+  },
+  friendStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding.xs,
+    paddingVertical: SIZES.padding.xs / 2,
+    borderRadius: SIZES.radius.sm,
+  },
+  friendStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SIZES.padding.xs,
+  },
+  friendStatusText: {
+    ...FONTS.caption,
+    color: COLORS.text.primary,
+  },
+  noMatchesContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: SIZES.padding.lg,
+  },
+  noMatchesText: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
+    marginBottom: SIZES.padding.md,
+  },
+  shareWithFriendsButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SIZES.padding.lg,
+    paddingVertical: SIZES.padding.sm,
+    borderRadius: SIZES.radius.md,
+    ...SHADOWS.medium,
+  },
+  shareWithFriendsText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
+  },
+  menuCategory: {
+    marginBottom: SIZES.padding.md,
+  },
+  menuCategoryTitle: {
+    ...FONTS.h4,
+    color: COLORS.text.primary,
+    marginBottom: SIZES.padding.xs,
+  },
+  menuItem: {
+    marginBottom: SIZES.padding.xs,
+  },
+  menuItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.padding.xs,
+  },
+  menuItemName: {
+    ...FONTS.body,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+  },
+  menuItemPrice: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
+  },
+  menuItemDescription: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
+  },
+  mapPlaceholder: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: SIZES.padding.lg,
+  },
+  mapText: {
+    ...FONTS.body,
+    color: COLORS.text.primary,
+    marginTop: SIZES.padding.sm,
+  },
+  moreButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SIZES.padding.lg,
+    paddingVertical: SIZES.padding.sm,
+    borderRadius: SIZES.radius.md,
+    ...SHADOWS.medium,
+  },
+  moreButtonText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
+  },
+  reviewDate: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
+  },
 }); 

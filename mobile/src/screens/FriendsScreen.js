@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -9,27 +9,75 @@ import {
   Image,
   ActivityIndicator,
   SafeAreaView,
-  Alert
+  Alert,
+  Platform,
+  RefreshControl
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
-import ActionButton from '../components/ActionButton';
+import AddFriendModal from '../components/AddFriendModal';
 
 export default function FriendsScreen({ navigation, route }) {
-  const { user } = route.params;
+  const { user, shareMode, shareData } = route.params || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' или 'discover'
-
+  const [addFriendModalVisible, setAddFriendModalVisible] = useState(false);
+  const [friendsStatus, setFriendsStatus] = useState({});
+  
+  useEffect(() => {
+    if (shareMode) {
+      setActiveTab('friends');
+    }
+  }, [shareMode]);
+  
   useEffect(() => {
     fetchUsers();
     fetchFriends();
+    
+    // Обновляем статусы друзей каждые 15 секунд (чаще для более актуальной информации)
+    const statusInterval = setInterval(() => {
+      if (friends.length > 0) {
+        fetchFriendsStatus();
+      }
+    }, 15000);
+    
+    // Обновляем данные при возвращении на экран
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchFriends();
+      if (friends.length > 0) {
+        fetchFriendsStatus();
+      }
+    });
+    
+    return () => {
+      clearInterval(statusInterval);
+      unsubscribe();
+    };
+  }, [navigation]);
+  
+  // Pull-to-refresh функция
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchUsers(false),
+        fetchFriends(false),
+        fetchFriendsStatus()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
-
-  const fetchUsers = async () => {
+  
+  const fetchUsers = async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     try {
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/users' 
@@ -43,15 +91,18 @@ export default function FriendsScreen({ navigation, route }) {
       const filteredUsers = res.data.filter(u => u._id !== user._id);
       console.log('Filtered users:', filteredUsers);
       setAllUsers(filteredUsers);
+      return filteredUsers;
     } catch (e) {
       console.error('Error fetching users:', e);
       console.error('Error details:', e.response?.data || e.message);
+      return [];
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
-  const fetchFriends = async () => {
+  const fetchFriends = async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     try {
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${user._id}/friends` 
@@ -59,8 +110,48 @@ export default function FriendsScreen({ navigation, route }) {
         
       const res = await axios.get(apiUrl);
       setFriends(res.data);
+      
+      // После получения списка друзей, запрашиваем их статусы
+      if (res.data.length > 0) {
+        fetchFriendsStatus(res.data);
+      }
+      
+      return res.data;
     } catch (e) {
       console.error('Error fetching friends:', e);
+      return [];
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+  
+  const fetchFriendsStatus = async (friendsList = friends) => {
+    if (!friendsList || !friendsList.length) return [];
+    
+    try {
+      const apiUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/users/status` 
+        : `http://192.168.0.82:5001/api/users/status`;
+        
+      const friendIds = friendsList.map(friend => friend._id);
+      const res = await axios.post(apiUrl, { userIds: friendIds });
+      
+      if (res.data && Array.isArray(res.data)) {
+        const statusData = {};
+        res.data.forEach(status => {
+          if (status && status.userId) {
+            statusData[status.userId] = status;
+          }
+        });
+        
+        setFriendsStatus(statusData);
+        return statusData;
+      }
+      
+      return {};
+    } catch (e) {
+      console.error('Error fetching friends status:', e);
+      return {};
     }
   };
 
@@ -73,24 +164,24 @@ export default function FriendsScreen({ navigation, route }) {
       await axios.post(apiUrl, { userId: user._id, friendId });
       // Обновляем список друзей
       fetchFriends();
-      Alert.alert('Success', 'Friend added successfully!');
+      Alert.alert('Успех', 'Друг успешно добавлен!');
     } catch (e) {
       console.error('Error adding friend:', e);
-      Alert.alert('Error', 'Failed to add friend. Please try again.');
+      Alert.alert('Ошибка', 'Не удалось добавить друга. Попробуйте еще раз.');
     }
   };
 
   const removeFriend = async (friendId) => {
     Alert.alert(
-      'Remove Friend',
-      'Are you sure you want to remove this friend?',
+      'Удаление друга',
+      'Вы уверены, что хотите удалить этого друга?',
       [
         {
-          text: 'Cancel',
+          text: 'Отмена',
           style: 'cancel'
         },
         {
-          text: 'Remove',
+          text: 'Удалить',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -103,7 +194,7 @@ export default function FriendsScreen({ navigation, route }) {
               fetchFriends();
             } catch (e) {
               console.error('Error removing friend:', e);
-              Alert.alert('Error', 'Failed to remove friend. Please try again.');
+              Alert.alert('Ошибка', 'Не удалось удалить друга. Попробуйте еще раз.');
             }
           }
         }
@@ -128,9 +219,73 @@ export default function FriendsScreen({ navigation, route }) {
   const isFriend = (userId) => {
     return friends.some(friend => friend._id === userId);
   };
+  
+  const getFriendStatus = (friendId) => {
+    const status = friendsStatus[friendId];
+    
+    if (!status) return null;
+    
+    if (status.isOnline) {
+      return {
+        text: 'Онлайн',
+        color: COLORS.success
+      };
+    } else if (status.lastSwipedAt && new Date(status.lastSwipedAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+      return {
+        text: 'Недавно свайпал',
+        color: COLORS.warning
+      };
+    } else if (status.hasMatches) {
+      return {
+        text: 'Есть совпадения',
+        color: COLORS.primary
+      };
+    }
+    
+    return {
+      text: 'Оффлайн',
+      color: COLORS.text.light
+    };
+  };
+
+  const shareWithFriend = async (friendId) => {
+    if (!shareData) return;
+    
+    try {
+      const apiUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001/api/chat' 
+        : 'http://192.168.0.82:5001/api/chat';
+        
+      await axios.post(apiUrl, {
+        userId: user._id,
+        recipientId: friendId,
+        text: shareData.message,
+        timestamp: new Date().toISOString()
+      });
+      
+      Alert.alert('Успех', 'Сообщение отправлено!');
+      
+      // Возвращаемся обратно после отправки
+      if (shareData.type === 'restaurant') {
+        navigation.navigate('RestaurantDetail', { 
+          restaurant: { 
+            _id: shareData.restaurantId,
+            name: shareData.restaurantName
+          }, 
+          user 
+        });
+      } else {
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Error sharing with friend:', error);
+      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+    }
+  };
 
   const renderUserItem = ({ item }) => {
     const alreadyFriend = isFriend(item._id);
+    const status = activeTab === 'friends' ? getFriendStatus(item._id) : null;
     
     return (
       <View style={styles.userCard}>
@@ -141,46 +296,91 @@ export default function FriendsScreen({ navigation, route }) {
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{item.name}</Text>
           <Text style={styles.userUsername}>@{item.username}</Text>
+          
+          {status && (
+            <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
+              <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+              <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+            </View>
+          )}
         </View>
-        {activeTab === 'discover' && (
+        
+        {shareMode && activeTab === 'friends' ? (
           <TouchableOpacity 
-            style={[
-              styles.actionButton,
-              alreadyFriend ? styles.actionButtonDisabled : null
-            ]}
-            onPress={() => addFriend(item._id)}
-            disabled={alreadyFriend}
+            style={styles.shareButton}
+            onPress={() => shareWithFriend(item._id)}
           >
-            <Ionicons 
-              name={alreadyFriend ? "checkmark" : "person-add"} 
-              size={20} 
-              color={alreadyFriend ? COLORS.success : COLORS.primary} 
-            />
+            <Ionicons name="share-social" size={20} color={COLORS.text.inverse} />
           </TouchableOpacity>
-        )}
-        {activeTab === 'friends' && (
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => removeFriend(item._id)}
-          >
-            <Ionicons name="person-remove" size={20} color={COLORS.error} />
-          </TouchableOpacity>
+        ) : (
+          <>
+            {activeTab === 'discover' && (
+              <TouchableOpacity 
+                style={[
+                  styles.actionButton,
+                  alreadyFriend ? styles.actionButtonDisabled : null
+                ]}
+                onPress={() => addFriend(item._id)}
+                disabled={alreadyFriend}
+              >
+                <Ionicons 
+                  name={alreadyFriend ? "checkmark" : "person-add"} 
+                  size={20} 
+                  color={alreadyFriend ? COLORS.success : COLORS.primary} 
+                />
+              </TouchableOpacity>
+            )}
+            {activeTab === 'friends' && !shareMode && (
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => removeFriend(item._id)}
+              >
+                <Ionicons name="person-remove" size={20} color={COLORS.error} />
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
     );
+  };
+  
+  const handleAddFriendModalClose = (shouldRefresh = false) => {
+    setAddFriendModalVisible(false);
+    if (shouldRefresh) {
+      fetchFriends();
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Friends</Text>
+        <Text style={styles.title}>
+          {shareMode ? 'Поделиться с другом' : 'Друзья'}
+        </Text>
+        {!shareMode && (
+          <TouchableOpacity 
+            style={styles.addFriendButton}
+            onPress={() => setAddFriendModalVisible(true)}
+          >
+            <Ionicons name="person-add" size={20} color={COLORS.text.inverse} />
+            <Text style={styles.addFriendButtonText}>Добавить друга</Text>
+          </TouchableOpacity>
+        )}
+        {shareMode && (
+          <TouchableOpacity 
+            style={styles.cancelButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.cancelButtonText}>Отмена</Text>
+          </TouchableOpacity>
+        )}
       </View>
       
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={COLORS.text.secondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name or username"
+          placeholder="Поиск по имени или нику"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -197,7 +397,8 @@ export default function FriendsScreen({ navigation, route }) {
             styles.tab, 
             activeTab === 'friends' && styles.activeTab
           ]}
-          onPress={() => setActiveTab('friends')}
+          onPress={() => !shareMode && setActiveTab('friends')}
+          disabled={shareMode}
         >
           <Text 
             style={[
@@ -205,23 +406,26 @@ export default function FriendsScreen({ navigation, route }) {
               activeTab === 'friends' && styles.activeTabText
             ]}
           >
-            My Friends
+            Мои друзья
           </Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[
             styles.tab, 
-            activeTab === 'discover' && styles.activeTab
+            activeTab === 'discover' && styles.activeTab,
+            shareMode && styles.disabledTab
           ]}
-          onPress={() => setActiveTab('discover')}
+          onPress={() => !shareMode && setActiveTab('discover')}
+          disabled={shareMode}
         >
           <Text 
             style={[
               styles.tabText, 
-              activeTab === 'discover' && styles.activeTabText
+              activeTab === 'discover' && styles.activeTabText,
+              shareMode && styles.disabledTabText
             ]}
           >
-            Discover
+            Поиск
           </Text>
         </TouchableOpacity>
       </View>
@@ -229,7 +433,7 @@ export default function FriendsScreen({ navigation, route }) {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>Загрузка...</Text>
         </View>
       ) : (
         <FlatList
@@ -237,6 +441,14 @@ export default function FriendsScreen({ navigation, route }) {
           renderItem={renderUserItem}
           keyExtractor={item => item._id}
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons 
@@ -246,18 +458,24 @@ export default function FriendsScreen({ navigation, route }) {
               />
               <Text style={styles.emptyTitle}>
                 {activeTab === 'friends' 
-                  ? 'No friends yet' 
-                  : 'No users found'}
+                  ? 'У вас пока нет друзей' 
+                  : 'Пользователи не найдены'}
               </Text>
               <Text style={styles.emptyText}>
                 {activeTab === 'friends' 
-                  ? 'Start adding friends to see them here' 
-                  : 'Try a different search term'}
+                  ? 'Добавьте друзей, чтобы видеть их здесь' 
+                  : 'Попробуйте изменить параметры поиска'}
               </Text>
             </View>
           }
         />
       )}
+      
+      <AddFriendModal 
+        visible={addFriendModalVisible}
+        onClose={handleAddFriendModalClose}
+        userId={user._id}
+      />
     </SafeAreaView>
   );
 }
@@ -271,10 +489,28 @@ const styles = StyleSheet.create({
     padding: SIZES.padding.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     ...FONTS.h1,
     color: COLORS.text.primary,
+  },
+  addFriendButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.padding.sm,
+    paddingHorizontal: SIZES.padding.md,
+    borderRadius: SIZES.radius.md,
+    alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  addFriendButtonText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
+    fontWeight: 'bold',
+    marginLeft: SIZES.padding.xs,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -361,6 +597,25 @@ const styles = StyleSheet.create({
     ...FONTS.small,
     color: COLORS.text.secondary,
   },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: SIZES.radius.round,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  statusText: {
+    ...FONTS.small,
+    fontWeight: '500',
+  },
   actionButton: {
     padding: SIZES.padding.sm,
     borderRadius: SIZES.radius.round,
@@ -386,5 +641,31 @@ const styles = StyleSheet.create({
     ...FONTS.body,
     color: COLORS.text.secondary,
     textAlign: 'center',
+  },
+  shareButton: {
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.round,
+    backgroundColor: COLORS.primary,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.round,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  cancelButtonText: {
+    ...FONTS.body,
+    color: COLORS.error,
+    fontWeight: 'bold',
+  },
+  disabledTab: {
+    opacity: 0.5,
+  },
+  disabledTabText: {
+    color: COLORS.text.light,
   },
 }); 

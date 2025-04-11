@@ -70,6 +70,14 @@ let userStatuses = {
   '3': { isOnline: false, lastSwipedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), hasMatches: true }
 };
 
+// Array to store users' selected restaurants (final choices)
+let selectedRestaurants = [];
+
+// Функция для генерации уникальных идентификаторов
+function generateUniqueId() {
+  return 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+}
+
 // Маршруты API
 app.post('/api/users/login', (req, res) => {
   const { username, password } = req.body;
@@ -665,9 +673,28 @@ app.get('/api/chat/:userId/:recipientId', (req, res) => {
 
 app.post('/api/chat', (req, res) => {
   const { userId, recipientId, text, timestamp, isSystemMessage, restaurantId } = req.body;
+  console.log(`Sending message from ${userId} to ${recipientId}`);
   
   if (!userId || !recipientId || !text) {
+    console.log('Missing required fields in message request');
     return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  // Проверяем существование пользователей (кроме системных сообщений)
+  if (userId !== 'system') {
+    const user = users.find(u => u._id === userId);
+    if (!user) {
+      console.log(`Sender with ID ${userId} not found`);
+      return res.status(404).json({ error: 'Sender not found' });
+    }
+  }
+  
+  if (recipientId !== 'system') {
+    const recipient = users.find(u => u._id === recipientId);
+    if (!recipient) {
+      console.log(`Recipient with ID ${recipientId} not found`);
+      return res.status(404).json({ error: 'Recipient not found' });
+    }
   }
   
   // Generate a new unique ID
@@ -689,6 +716,7 @@ app.post('/api/chat', (req, res) => {
   
   // Add to the messages array
   messages.push(newMessage);
+  console.log(`Message saved, ID: ${newMessage.id}`);
   
   // Update hasMatches status for users if this is a restaurant match
   if (isSystemMessage && text.includes('both liked') && recipientId) {
@@ -1110,40 +1138,6 @@ app.get('/api/chat/:userId/:otherUserId', (req, res) => {
   return res.json(conversationMessages);
 });
 
-// Отправка сообщения
-app.post('/api/chat', (req, res) => {
-  const { userId, recipientId, text } = req.body;
-  console.log(`Sending message from ${userId} to ${recipientId}`);
-  
-  if (!userId || !recipientId || !text) {
-    console.log('Missing required fields in message request');
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-  
-  // Проверяем существование пользователей
-  const user = users.find(u => u._id === userId);
-  const recipient = users.find(u => u._id === recipientId);
-  
-  if (!user || !recipient) {
-    console.log(`One of the users not found: sender (${userId}): ${!!user}, recipient (${recipientId}): ${!!recipient}`);
-    return res.status(404).json({ error: 'User not found' });
-  }
-  
-  const newMessage = {
-    id: `msg_${Date.now()}`,
-    userId,
-    recipientId,
-    text,
-    timestamp: new Date().toISOString(),
-    read: false
-  };
-  
-  messages.push(newMessage);
-  console.log(`Message saved, ID: ${newMessage.id}`);
-  
-  return res.json(newMessage);
-});
-
 // API для совпадений (matches)
 app.get('/api/matches/:userId/:restaurantId', (req, res) => {
   const { userId, restaurantId } = req.params;
@@ -1205,6 +1199,66 @@ app.get('/api/users/:userId/matches', (req, res) => {
   });
   
   return res.json(matches);
+});
+
+// API endpoint to save a user's selected restaurant (final choice after tournament)
+app.post('/api/users/:userId/selected-restaurant', (req, res) => {
+  const { userId } = req.params;
+  const { 
+    restaurantId, 
+    restaurantName, 
+    image, 
+    cuisine, 
+    priceRange, 
+    rating, 
+    location 
+  } = req.body;
+  
+  if (!userId || !restaurantId) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  
+  // Check if user already has a selected restaurant
+  const existingIndex = selectedRestaurants.findIndex(
+    selection => selection.userId === userId
+  );
+  
+  const selection = {
+    userId,
+    restaurantId,
+    restaurantName,
+    image,
+    cuisine,
+    priceRange,
+    rating,
+    location,
+    timestamp: new Date().toISOString()
+  };
+  
+  if (existingIndex >= 0) {
+    // Update existing selection
+    selectedRestaurants[existingIndex] = selection;
+  } else {
+    // Add new selection
+    selectedRestaurants.push(selection);
+  }
+  
+  return res.status(201).json(selection);
+});
+
+// Get a user's selected restaurant
+app.get('/api/users/:userId/selected-restaurant', (req, res) => {
+  const { userId } = req.params;
+  
+  const selection = selectedRestaurants.find(
+    selection => selection.userId === userId
+  );
+  
+  if (!selection) {
+    return res.status(404).json({ message: 'No selected restaurant found' });
+  }
+  
+  return res.json(selection);
 });
 
 const PORT = process.env.PORT || 5001;

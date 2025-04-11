@@ -17,7 +17,7 @@ import { useRoute } from '@react-navigation/native';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 
 export default function SavedRestaurantsScreen({ navigation, route }) {
-  const { user } = route.params || {};
+  const { user, startTournament } = route.params || {};
   const [savedRestaurants, setSavedRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,6 +25,19 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   useEffect(() => {
     fetchSavedRestaurants();
   }, []);
+  
+  // Check if we should automatically start a tournament
+  useEffect(() => {
+    if (startTournament && savedRestaurants.length >= 2) {
+      // Wait a bit for the UI to render before navigating
+      const timer = setTimeout(() => {
+        navigation.navigate('Tournament', { user, savedRestaurants });
+      }, 500);
+      
+      // Clean up timer
+      return () => clearTimeout(timer);
+    }
+  }, [savedRestaurants, startTournament]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -270,7 +283,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
               onPress={() => navigation.navigate('Tournament', { user, savedRestaurants })}
             >
               <Ionicons name="trophy-outline" size={20} color={COLORS.text.inverse} />
-              <Text style={styles.chooseTournamentText}>Выбрать один</Text>
+              <Text style={styles.chooseTournamentText}>Choose One Restaurant</Text>
             </TouchableOpacity>
           ) : null
         )}

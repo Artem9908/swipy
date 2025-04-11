@@ -258,7 +258,7 @@ export default function FriendsScreen({ navigation, route }) {
     try {
       console.log('Sharing with friend ID:', friendId, 'Data:', shareData);
       
-      // Показываем краткий индикатор нажатия
+      // Show a brief tap indicator
       const friend = friends.find(f => f._id === friendId);
       const friendName = friend ? (friend.name || friend.username) : 'selected friend';
       
@@ -269,21 +269,23 @@ export default function FriendsScreen({ navigation, route }) {
         { cancelable: false }
       );
       
-      // Небольшая задержка, чтобы пользователь увидел уведомление
+      // Small delay to let the user see the notification
       setTimeout(() => {
-        // Переходим на экран чата с выбранным другом
+        // Navigate to chat screen with the selected friend
         navigation.navigate('Chat', { 
           user,
-          friend: friends.find(f => f._id === friendId), // Передаем весь объект друга
+          friend: friends.find(f => f._id === friendId), // Pass the entire friend object
           shareData: {
             ...shareData,
-            friendId
+            friendId: friendId, // Add the friend ID to the share data
+            timestamp: new Date().toISOString()
           }
         });
-      }, 800);
+      }, 300);
+      
     } catch (error) {
-      console.error('Error navigating to chat:', error);
-      Alert.alert('Error', 'Could not open chat');
+      console.error('Error sharing with friend:', error);
+      Alert.alert('Error', 'Could not share with friend');
     }
   };
 

@@ -133,10 +133,14 @@ export default function ChatScreen({ route, navigation }) {
       }
       
       // Если есть данные для шеринга и выбран конкретный друг, отправляем сообщение автоматически
-      if (shareData && shareData.message) {
-        console.log('Will send share message for restaurant:', shareData.restaurantName);
+      if (shareData && (shareData.message || 
+          shareData.type === 'tournament_winner' || 
+          shareData.type === 'final_choice')) {
+        console.log('Will send share message for restaurant:', shareData.restaurantName, 'Type:', shareData.type);
         // Немедленно отправляем сообщение
-        sendShareMessage();
+        setTimeout(() => {
+          sendShareMessage();
+        }, 800);
       }
       
       // Устанавливаем интервал для периодического обновления чата
@@ -232,8 +236,18 @@ export default function ChatScreen({ route, navigation }) {
     }
     
     try {
-      console.log('Sending share message for restaurant:', shareData.restaurantName);
-      const message = shareData.message || `Hi! Check out this restaurant: ${shareData.restaurantName}. I think you'll like it!`;
+      console.log('Sending share message for restaurant:', shareData.restaurantName, 'Type:', shareData.type);
+      
+      // Формируем сообщение в зависимости от типа данных
+      let message = '';
+      
+      if (shareData.message) {
+        message = shareData.message;
+      } else if (shareData.type === 'tournament_winner' || shareData.type === 'final_choice') {
+        message = `I'd like to go to ${shareData.restaurantName}! Would you like to join me?`;
+      } else {
+        message = `Hi! Check out this restaurant: ${shareData.restaurantName}. I think you'll like it!`;
+      }
       
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/chat' 
@@ -248,7 +262,7 @@ export default function ChatScreen({ route, navigation }) {
       
       console.log('Share message sent successfully:', response.data);
       
-      // Добавляем новое сообщение в список сразу, не дожидаясь обновления
+      // Добавляем новое сообщение в список, не дожидаясь обновления
       const newMessage = response.data;
       setMessages(prevMessages => [...prevMessages, newMessage]);
       

@@ -105,6 +105,15 @@ export default function ProfileScreen({ navigation, route }) {
             <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
           </TouchableOpacity>
           
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('FinalChoice', { user })}
+          >
+            <Ionicons name="restaurant-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
+            <Text style={styles.menuText}>My Selected Restaurant</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+          </TouchableOpacity>
+          
           <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="star-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
             <Text style={styles.menuText}>My Reviews</Text>

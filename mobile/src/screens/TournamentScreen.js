@@ -177,6 +177,23 @@ export default function TournamentScreen({ navigation, route }) {
     }
   };
   
+  const shareWithFriend = () => {
+    if (!winner || !user) return;
+    
+    // Navigate to Friends screen with restaurant data for sharing
+    navigation.navigate('Friends', {
+      user,
+      shareMode: true,
+      shareData: {
+        type: 'tournament_winner',
+        restaurantId: winner.restaurantId,
+        restaurantName: winner.restaurantName,
+        message: `I'd like to go to ${winner.restaurantName}! Would you like to join me?`,
+        image: winner.image
+      }
+    });
+  };
+  
   const openOnMap = () => {
     if (!winner) return;
     
@@ -207,6 +224,14 @@ export default function TournamentScreen({ navigation, route }) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="close" size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Your Final Choice</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        
         <View style={styles.winnerContainer}>
           <Text style={styles.winnerTitle}>Here's where you want to go today 🎉</Text>
           
@@ -255,10 +280,39 @@ export default function TournamentScreen({ navigation, route }) {
           </View>
           
           <TouchableOpacity 
+            style={styles.friendShareButton} 
+            onPress={shareWithFriend}
+          >
+            <Ionicons name="people-outline" size={20} color={COLORS.text.inverse} />
+            <Text style={styles.buttonText}>Invite a Friend</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.viewDetailsButton} 
+            onPress={() => {
+              navigation.navigate('RestaurantDetail', { 
+                restaurant: {
+                  _id: winner.restaurantId,
+                  place_id: winner.restaurantId,
+                  name: winner.restaurantName,
+                  image: winner.image,
+                  cuisine: winner.cuisine,
+                  priceRange: winner.priceRange,
+                  rating: winner.rating,
+                  address: winner.location
+                }, 
+                user
+              });
+            }}
+          >
+            <Text style={styles.viewDetailsButtonText}>View Restaurant Details</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>Back to Saved Restaurants</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -617,5 +671,27 @@ const styles = StyleSheet.create({
   backButtonText: {
     ...FONTS.body,
     color: COLORS.text.secondary,
+  },
+  friendShareButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.success,
+    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SIZES.padding.lg,
+    width: '100%',
+    ...SHADOWS.medium,
+  },
+  viewDetailsButton: {
+    marginTop: SIZES.padding.lg,
+    padding: SIZES.padding.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: SIZES.radius.md,
+  },
+  viewDetailsButtonText: {
+    ...FONTS.body,
+    color: COLORS.primary,
   },
 }); 

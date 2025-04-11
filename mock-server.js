@@ -23,20 +23,37 @@ let restaurantsCache = {};
 let restaurantDetailsCache = {};
 let messages = [
   { 
-    id: 'msg1', 
+    id: '1', 
     userId: '1', 
-    recipientId: '2', 
-    text: 'Привет, как дела?', 
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    recipientId: 'user1', 
+    text: 'Hello there! How are you?', 
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
     read: true
   },
   { 
-    id: 'msg2', 
-    userId: '2', 
+    id: '2', 
+    userId: 'user1', 
     recipientId: '1', 
-    text: 'Привет! Всё хорошо, спасибо!', 
-    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    text: 'Hi! I\'m good, thanks for asking!', 
+    timestamp: new Date(Date.now() - 3500000).toISOString(),
     read: true
+  },
+  { 
+    id: '3', 
+    userId: '1', 
+    recipientId: 'user1', 
+    text: 'Have you tried that new Italian place downtown?', 
+    timestamp: new Date(Date.now() - 3400000).toISOString(),
+    read: true
+  },
+  { 
+    id: '4', 
+    userId: 'system', 
+    recipientId: '1', 
+    text: '🎉 You and Alice both liked "Italiano Delizioso"!', 
+    timestamp: new Date(Date.now() - 3300000).toISOString(),
+    isSystemMessage: true,
+    restaurantId: 'sample-restaurant-1'
   }
 ];
 let reservations = [];
@@ -647,29 +664,44 @@ app.get('/api/chat/:userId/:recipientId', (req, res) => {
 });
 
 app.post('/api/chat', (req, res) => {
-  const { userId, recipientId, text, timestamp } = req.body;
+  const { userId, recipientId, text, timestamp, isSystemMessage, restaurantId } = req.body;
   
-  // Проверяем, существуют ли пользователи
-  const user = users.find(u => u._id === userId);
-  const recipient = users.find(u => u._id === recipientId);
-  
-  if (!user || !recipient) {
-    return res.status(404).json({ error: 'User not found' });
+  if (!userId || !recipientId || !text) {
+    return res.status(400).json({ message: 'Missing required fields' });
   }
   
-  // Добавляем сообщение
+  // Generate a new unique ID
+  const id = generateUniqueId();
+  
+  // Create the new message object
   const newMessage = {
-    id: `msg-${Date.now()}`,
+    id,
     userId,
     recipientId,
     text,
     timestamp: timestamp || new Date().toISOString(),
-    read: false
+    read: userId === 'system', // System messages are automatically read
   };
+
+  // Add optional fields if they exist
+  if (isSystemMessage) newMessage.isSystemMessage = true;
+  if (restaurantId) newMessage.restaurantId = restaurantId;
   
+  // Add to the messages array
   messages.push(newMessage);
   
-  return res.json(newMessage);
+  // Update hasMatches status for users if this is a restaurant match
+  if (isSystemMessage && text.includes('both liked') && recipientId) {
+    const userIds = [userId, recipientId].filter(id => id !== 'system');
+    
+    userIds.forEach(id => {
+      if (userStatuses[id]) {
+        userStatuses[id].hasMatches = true;
+      }
+    });
+  }
+  
+  return res.status(201).json(newMessage);
 });
 
 // Работа с бронированиями

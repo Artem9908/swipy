@@ -340,12 +340,56 @@ export default function FriendsScreen({ navigation, route }) {
             {activeTab === 'friends' && !shareMode && (
               <View style={styles.actionsContainer}>
                 {status && status.text === 'Has restaurant matches' && (
-                  <TouchableOpacity 
-                    style={styles.matchButton}
-                    onPress={() => navigation.navigate('Matches', { user, initialFriendId: item._id })}
-                  >
-                    <Ionicons name="restaurant" size={20} color={COLORS.primary} />
-                  </TouchableOpacity>
+                  <View style={styles.matchActionsContainer}>
+                    <TouchableOpacity 
+                      style={styles.matchButton}
+                      onPress={() => navigation.navigate('Matches', { user, initialFriendId: item._id })}
+                    >
+                      <Ionicons name="restaurant" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.chatAboutMatchButton}
+                      onPress={() => {
+                        // Fetch matches first to get restaurant data
+                        const apiUrl = Platform.OS === 'web' 
+                          ? `http://localhost:5001/api/users/${user._id}/matches` 
+                          : `http://192.168.0.82:5001/api/users/${user._id}/matches`;
+                          
+                        axios.get(apiUrl)
+                          .then(res => {
+                            // Find matches with this friend
+                            const friendMatches = res.data.filter(match => match.friendId === item._id);
+                            
+                            if (friendMatches.length > 0) {
+                              // Get the first matched restaurant for simplicity
+                              const firstMatch = friendMatches[0];
+                              
+                              // Navigate to chat with restaurant context
+                              navigation.navigate('Chat', {
+                                user,
+                                friend: item,
+                                shareData: {
+                                  type: 'restaurant_match',
+                                  restaurantId: firstMatch.restaurantId,
+                                  restaurantName: firstMatch.restaurantName,
+                                  restaurantImage: firstMatch.restaurantImage,
+                                  message: `I see we both liked ${firstMatch.restaurantName}! Would you like to go together?`
+                                }
+                              });
+                            } else {
+                              Alert.alert('No matches found', 'Could not find any restaurant matches with this friend.');
+                            }
+                          })
+                          .catch(error => {
+                            console.error('Error fetching matches:', error);
+                            Alert.alert('Error', 'Could not load restaurant matches');
+                          });
+                      }}
+                    >
+                      <Ionicons name="chatbubbles-outline" size={18} color={COLORS.text.inverse} />
+                      <Text style={styles.chatAboutMatchText}>Chat</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
                 <TouchableOpacity 
                   style={styles.actionButton}
@@ -706,5 +750,26 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     marginRight: SIZES.padding.xs,
     backgroundColor: COLORS.primary + '10', // 10% opacity
+  },
+  matchActionsContainer: {
+    flexDirection: 'column',
+    marginRight: SIZES.padding.xs,
+    alignItems: 'center',
+  },
+  chatAboutMatchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.success,
+    paddingVertical: 5,
+    paddingHorizontal: SIZES.padding.sm,
+    borderRadius: SIZES.radius.md,
+    marginTop: SIZES.padding.xs,
+    ...SHADOWS.small,
+  },
+  chatAboutMatchText: {
+    ...FONTS.small,
+    color: COLORS.text.inverse,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
 }); 

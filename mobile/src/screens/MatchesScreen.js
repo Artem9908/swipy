@@ -209,23 +209,24 @@ export default function MatchesScreen({ navigation, route }) {
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.actionButton}
+              style={[styles.actionButton, styles.chatButton]}
               onPress={() => {
                 // Navigate to chat with the friend
                 navigation.navigate('Chat', {
                   user,
                   friend: selectedFriend,
                   shareData: {
-                    type: 'restaurant',
+                    type: 'restaurant_match',
                     restaurantId: item.restaurantId,
                     restaurantName: item.restaurantName,
-                    message: `Let's go to ${item.restaurantName} together!`
+                    restaurantImage: item.restaurantImage,
+                    message: `I see we both liked ${item.restaurantName}! Would you like to go together?`
                   }
                 });
               }}
             >
               <Ionicons name="chatbubble-outline" size={16} color={COLORS.text.inverse} />
-              <Text style={styles.actionButtonText}>Chat</Text>
+              <Text style={styles.actionButtonText}>Discuss</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -459,6 +460,9 @@ const styles = StyleSheet.create({
     color: COLORS.text.inverse,
     marginLeft: 4,
     fontWeight: 'bold',
+  },
+  chatButton: {
+    backgroundColor: COLORS.success,
   },
   emptyContainer: {
     flex: 1,

@@ -28,10 +28,22 @@ export default function ChatScreen({ route, navigation }) {
   const [selectedFriend, setSelectedFriend] = useState(friend || null);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeRestaurant, setActiveRestaurant] = useState(null);
+  const [suggestingDateTime, setSuggestingDateTime] = useState(false);
+  const [suggestedDate, setSuggestedDate] = useState(new Date());
   const flatListRef = useRef(null);
 
   useEffect(() => {
     console.log('Chat screen mounted, user:', user);
+    
+    // Set active restaurant if this is a restaurant match chat
+    if (shareData && (shareData.type === 'restaurant_match' || shareData.type === 'restaurant')) {
+      setActiveRestaurant({
+        id: shareData.restaurantId,
+        name: shareData.restaurantName,
+        image: shareData.restaurantImage
+      });
+    }
     
     // Проверка наличия данных о пользователе
     if (!user || !user._id) {
@@ -112,6 +124,14 @@ export default function ChatScreen({ route, navigation }) {
       // Загрузка сообщений при выборе друга
       fetchMessages(false);
       
+      // Send match announcement if this is a restaurant match chat
+      if (shareData && shareData.type === 'restaurant_match') {
+        // Wait for messages to load first
+        setTimeout(() => {
+          sendMatchAnnouncement();
+        }, 500);
+      }
+      
       // Если есть данные для шеринга и выбран конкретный друг, отправляем сообщение автоматически
       if (shareData && shareData.message) {
         console.log('Will send share message for restaurant:', shareData.restaurantName);
@@ -146,6 +166,57 @@ export default function ChatScreen({ route, navigation }) {
       }
     } catch (e) {
       console.error('Error fetching friend details:', e);
+    }
+  };
+
+  // Send an automatic restaurant match announcement
+  const sendMatchAnnouncement = async () => {
+    if (!shareData || !selectedFriend || !user || !user._id || shareData.type !== 'restaurant_match') {
+      return;
+    }
+    
+    try {
+      // Check if we've already sent an announcement for this restaurant
+      const existingAnnouncement = messages.find(msg => 
+        msg.isSystemMessage && 
+        msg.restaurantId === shareData.restaurantId
+      );
+      
+      if (existingAnnouncement) {
+        console.log('Match announcement already exists for this restaurant');
+        return;
+      }
+      
+      console.log('Sending restaurant match announcement');
+      
+      const apiUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001/api/chat' 
+        : 'http://192.168.0.82:5001/api/chat';
+        
+      const announcement = `🎉 You and ${selectedFriend.name || selectedFriend.username} both liked "${shareData.restaurantName}"!`;
+      
+      const response = await axios.post(apiUrl, {
+        userId: 'system',  // Special ID for system messages
+        recipientId: selectedFriend._id,
+        text: announcement,
+        timestamp: new Date().toISOString(),
+        isSystemMessage: true,
+        restaurantId: shareData.restaurantId
+      });
+      
+      console.log('Match announcement sent successfully:', response.data);
+      
+      // Add announcement to messages
+      setMessages(prevMessages => [...prevMessages, response.data]);
+      
+      // Scroll to the new message
+      if (flatListRef.current) {
+        setTimeout(() => {
+          flatListRef.current.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error sending match announcement:', error);
     }
   };
 
@@ -362,6 +433,31 @@ export default function ChatScreen({ route, navigation }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to send a date/time suggestion
+  const sendDateTimeSuggestion = () => {
+    if (!selectedFriend || !activeRestaurant) return;
+    
+    // Format the date nicely
+    const formattedDate = suggestedDate.toLocaleDateString(undefined, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const formattedTime = suggestedDate.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    // Set the message text with the suggestion
+    const suggestionMessage = `How about meeting at ${activeRestaurant.name} on ${formattedDate} at ${formattedTime}?`;
+    setText(suggestionMessage);
+    
+    // Hide the date picker
+    setSuggestingDateTime(false);
   };
 
   // Улучшенная функция отправки обычного сообщения
@@ -588,6 +684,34 @@ export default function ChatScreen({ route, navigation }) {
             style={styles.keyboardAvoidingView}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
           >
+            {activeRestaurant && (
+              <View style={styles.activeRestaurantBanner}>
+                <Image 
+                  source={{ uri: activeRestaurant.image || 'https://via.placeholder.com/100?text=Restaurant' }}
+                  style={styles.activeRestaurantImage} 
+                />
+                <View style={styles.activeRestaurantInfo}>
+                  <Text style={styles.activeRestaurantTitle}>Discussing:</Text>
+                  <Text style={styles.activeRestaurantName}>{activeRestaurant.name}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.viewRestaurantButton}
+                  onPress={() => {
+                    navigation.navigate('RestaurantDetail', {
+                      restaurant: {
+                        _id: activeRestaurant.id,
+                        name: activeRestaurant.name,
+                        image: activeRestaurant.image
+                      },
+                      user
+                    });
+                  }}
+                >
+                  <Text style={styles.viewRestaurantText}>View</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -595,9 +719,10 @@ export default function ChatScreen({ route, navigation }) {
               renderItem={({ item }) => (
                 <View style={[
                   styles.messageItem,
-                  item.userId === user._id ? styles.sentMessage : styles.receivedMessage
+                  item.userId === user._id ? styles.sentMessage : styles.receivedMessage,
+                  item.isSystemMessage && styles.systemMessage
                 ]}>
-                  {item.userId !== user._id && (
+                  {item.userId !== user._id && !item.isSystemMessage && (
                     <Image 
                       source={{ uri: getAvatarUrl(selectedFriend.username) }} 
                       style={styles.messageAvatar} 
@@ -605,17 +730,21 @@ export default function ChatScreen({ route, navigation }) {
                   )}
                   <View style={[
                     styles.messageBubble,
-                    item.userId === user._id ? styles.sentBubble : styles.receivedBubble
+                    item.userId === user._id ? styles.sentBubble : styles.receivedBubble,
+                    item.isSystemMessage && styles.systemBubble
                   ]}>
                     <Text style={[
                       styles.messageText,
-                      item.userId === user._id ? styles.sentMessageText : styles.receivedMessageText
+                      item.userId === user._id ? styles.sentMessageText : styles.receivedMessageText,
+                      item.isSystemMessage && styles.systemMessageText
                     ]}>
                       {item.text}
                     </Text>
-                    <Text style={styles.timestamp}>
-                      {formatTime(item.timestamp)}
-                    </Text>
+                    {!item.isSystemMessage && (
+                      <Text style={styles.timestamp}>
+                        {formatTime(item.timestamp)}
+                      </Text>
+                    )}
                   </View>
                 </View>
               )}
@@ -682,28 +811,129 @@ export default function ChatScreen({ route, navigation }) {
             />
             
             <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={text}
-                onChangeText={setText}
-                placeholder="Type a message..."
-                placeholderTextColor={COLORS.text.light}
-                multiline
-              />
-              <TouchableOpacity 
-                style={[
-                  styles.sendButton,
-                  !text.trim() && styles.disabledButton
-                ]} 
-                onPress={sendMessage}
-                disabled={!text.trim()}
-              >
-                <Ionicons 
-                  name="send" 
-                  size={24} 
-                  color={text.trim() ? COLORS.primary : COLORS.inactive} 
-                />
-              </TouchableOpacity>
+              {suggestingDateTime && activeRestaurant ? (
+                <View style={styles.datePickerContainer}>
+                  <Text style={styles.datePickerTitle}>Suggest a time to meet at {activeRestaurant.name}</Text>
+                  
+                  {/* Simple date picker - in a real app, use a proper date picker component */}
+                  <View style={styles.datePickerRow}>
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => {
+                        const newDate = new Date(suggestedDate);
+                        newDate.setDate(newDate.getDate() - 1);
+                        setSuggestedDate(newDate);
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    
+                    <Text style={styles.dateText}>
+                      {suggestedDate.toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </Text>
+                    
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => {
+                        const newDate = new Date(suggestedDate);
+                        newDate.setDate(newDate.getDate() + 1);
+                        setSuggestedDate(newDate);
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.datePickerRow}>
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => {
+                        const newDate = new Date(suggestedDate);
+                        newDate.setHours(newDate.getHours() - 1);
+                        setSuggestedDate(newDate);
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    
+                    <Text style={styles.timeText}>
+                      {suggestedDate.toLocaleTimeString(undefined, {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                    
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => {
+                        const newDate = new Date(suggestedDate);
+                        newDate.setHours(newDate.getHours() + 1);
+                        setSuggestedDate(newDate);
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.datePickerActions}>
+                    <TouchableOpacity 
+                      style={styles.cancelButton}
+                      onPress={() => setSuggestingDateTime(false)}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.confirmButton}
+                      onPress={sendDateTimeSuggestion}
+                    >
+                      <Text style={styles.confirmButtonText}>Suggest This Time</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    value={text}
+                    onChangeText={setText}
+                    placeholder="Type a message..."
+                    placeholderTextColor={COLORS.text.light}
+                    multiline
+                  />
+                  
+                  {activeRestaurant && (
+                    <TouchableOpacity 
+                      style={styles.suggestTimeButton}
+                      onPress={() => {
+                        setSuggestedDate(new Date());
+                        setSuggestingDateTime(true);
+                      }}
+                    >
+                      <Ionicons name="calendar" size={24} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  )}
+                  
+                  <TouchableOpacity 
+                    style={[
+                      styles.sendButton,
+                      !text.trim() && styles.disabledButton
+                    ]} 
+                    onPress={sendMessage}
+                    disabled={!text.trim()}
+                  >
+                    <Ionicons 
+                      name="send" 
+                      size={24} 
+                      color={text.trim() ? COLORS.primary : COLORS.inactive} 
+                    />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </KeyboardAvoidingView>
         ) : (
@@ -727,11 +957,19 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SIZES.padding.md,
+    paddingBottom: SIZES.padding.lg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: COLORS.background,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    zIndex: 10,
   },
   title: {
     ...FONTS.h1,
@@ -782,13 +1020,19 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     marginBottom: SIZES.padding.sm,
     paddingHorizontal: SIZES.padding.md,
+    marginTop: SIZES.padding.md,
   },
   friendsContainer: {
     marginBottom: SIZES.padding.md,
-    paddingTop: SIZES.padding.sm,
+    paddingTop: SIZES.padding.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginTop: 2,
   },
   friendsList: {
     paddingHorizontal: SIZES.padding.md,
+    paddingBottom: SIZES.padding.md,
+    paddingTop: 2,
   },
   friendItem: {
     padding: SIZES.padding.sm,
@@ -798,20 +1042,30 @@ const styles = StyleSheet.create({
     minWidth: 80,
     alignItems: 'center',
     ...SHADOWS.small,
+    marginVertical: 6,
   },
   selectedFriend: {
     backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    transform: [{scale: 1.05}],
+    ...SHADOWS.medium,
   },
   friendAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginBottom: SIZES.padding.xs,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginBottom: SIZES.padding.sm,
+    borderWidth: 2,
+    borderColor: COLORS.card,
   },
   friendName: {
     ...FONTS.body,
     fontWeight: '500',
     color: COLORS.text.primary,
+    textAlign: 'center',
+    fontSize: 12,
+    marginTop: 2,
   },
   selectedFriendText: {
     color: COLORS.text.inverse,
@@ -834,9 +1088,8 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flex: 1,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: SIZES.padding.sm,
+    borderTopWidth: 0,
+    paddingTop: SIZES.padding.md,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -1027,6 +1280,131 @@ const styles = StyleSheet.create({
   viewAllText: {
     ...FONTS.body,
     color: COLORS.primary,
+    fontWeight: 'bold',
+  },
+  activeRestaurantBanner: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.md,
+    marginHorizontal: SIZES.padding.md,
+    marginBottom: SIZES.padding.md,
+    alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  activeRestaurantImage: {
+    width: 40,
+    height: 40,
+    borderRadius: SIZES.radius.sm,
+    marginRight: SIZES.padding.sm,
+  },
+  activeRestaurantInfo: {
+    flex: 1,
+  },
+  activeRestaurantTitle: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
+  },
+  activeRestaurantName: {
+    ...FONTS.body,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+  },
+  viewRestaurantButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.padding.xs,
+    paddingHorizontal: SIZES.padding.sm,
+    borderRadius: SIZES.radius.sm,
+  },
+  viewRestaurantText: {
+    ...FONTS.caption,
+    color: COLORS.text.inverse,
+    fontWeight: 'bold',
+  },
+  systemMessage: {
+    alignSelf: 'center',
+    maxWidth: '90%',
+  },
+  systemBubble: {
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: SIZES.radius.md,
+  },
+  systemMessageText: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  suggestTimeButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.padding.xs,
+    ...SHADOWS.small,
+  },
+  datePickerContainer: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius.md,
+    padding: SIZES.padding.md,
+    ...SHADOWS.medium,
+  },
+  datePickerTitle: {
+    ...FONTS.body,
+    color: COLORS.text.primary,
+    fontWeight: 'bold',
+    marginBottom: SIZES.padding.sm,
+    textAlign: 'center',
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: SIZES.padding.xs,
+  },
+  datePickerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  dateText: {
+    ...FONTS.h3,
+    color: COLORS.text.primary,
+  },
+  timeText: {
+    ...FONTS.h3,
+    color: COLORS.text.primary,
+  },
+  datePickerActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: SIZES.padding.md,
+  },
+  cancelButton: {
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.md,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  cancelButtonText: {
+    ...FONTS.body,
+    color: COLORS.error,
+  },
+  confirmButton: {
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.md,
+    backgroundColor: COLORS.primary,
+    ...SHADOWS.small,
+  },
+  confirmButtonText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
     fontWeight: 'bold',
   },
 });

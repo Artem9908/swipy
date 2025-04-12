@@ -8,7 +8,9 @@ import {
   ScrollView, 
   Alert,
   SafeAreaView,
-  Platform
+  Platform,
+  ImageBackground,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
@@ -24,6 +26,31 @@ export default function ProfileScreen({ navigation, route }) {
     favorites: [],
     friends: [],
     reviews: []
+  });
+
+  const scrollY = new Animated.Value(0);
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [150, 100],
+    extrapolate: 'clamp'
+  });
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 60, 90],
+    outputRange: [1, 0.3, 0],
+    extrapolate: 'clamp'
+  });
+
+  const avatarSize = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [80, 50],
+    extrapolate: 'clamp'
+  });
+
+  const avatarMarginTop = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [90, 60],
+    extrapolate: 'clamp'
   });
 
   const handleLogout = () => {
@@ -54,135 +81,188 @@ export default function ProfileScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Шапка профиля */}
-        <View style={styles.header}>
-          <View style={styles.profileInfo}>
-            <Image 
-              source={{ uri: userData.avatar || 'https://ui-avatars.com/api/?name=User&background=4ecdc4&color=fff' }} 
-              style={styles.avatar} 
-            />
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{userData.name}</Text>
-              <Text style={styles.userEmail}>{userData.email}</Text>
+      <Animated.View style={[styles.headerBackground, { height: headerHeight }]}>
+        <Animated.View style={[styles.headerContent, { opacity: headerOpacity }]}>
+          <ImageBackground
+            source={{ uri: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+            style={styles.headerImage}
+            resizeMode="cover"
+            blurRadius={1}
+          >
+            <View style={styles.headerOverlay} />
+            <TouchableOpacity style={styles.settingsButton} onPress={() => Alert.alert('Coming Soon', 'Settings will be available in the next update')}>
+              <Ionicons name="settings-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </ImageBackground>
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.Image 
+        source={{ uri: userData.avatar || 'https://ui-avatars.com/api/?name=User&background=4ecdc4&color=fff' }} 
+        style={[
+          styles.avatar, 
+          { 
+            width: avatarSize, 
+            height: avatarSize, 
+            borderRadius: 50,
+            marginTop: avatarMarginTop
+          }
+        ]} 
+      />
+      
+      <View style={styles.profileNameSection}>
+        <Text style={styles.userName}>{userData.name}</Text>
+        <Text style={styles.userEmail}>{userData.email}</Text>
+        <TouchableOpacity style={styles.editButton} onPress={editProfile}>
+          <Ionicons name="pencil" size={16} color="#fff" />
+          <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Animated.ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+      >
+        <View style={styles.content}>
+          {/* Статистика */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userData.favorites?.length || 0}</Text>
+              <Text style={styles.statLabel}>Favorites</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userData.friends?.length || 0}</Text>
+              <Text style={styles.statLabel}>Friends</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userData.reviews?.length || 0}</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.editButton} onPress={editProfile}>
-            <Ionicons name="pencil" size={20} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
 
-        {/* Статистика */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userData.favorites?.length || 0}</Text>
-            <Text style={styles.statLabel}>Favorites</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userData.friends?.length || 0}</Text>
-            <Text style={styles.statLabel}>Friends</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userData.reviews?.length || 0}</Text>
-            <Text style={styles.statLabel}>Reviews</Text>
-          </View>
-        </View>
-
-        {/* Меню профиля */}
-        <View style={styles.menuContainer}>
-          <TouchableOpacity style={styles.menuItem} onPress={goToFriends}>
-            <Ionicons name="people-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>Friends</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItem} 
-            onPress={() => navigation.navigate('SavedRestaurants', { user })}
-          >
-            <Ionicons name="heart-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>Favorite Restaurants</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('FinalChoice', { user })}
-          >
-            <Ionicons name="restaurant-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>My Selected Restaurant</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => {
-              Alert.alert(
-                'Reset Swiped Restaurants',
-                'This will clear your swipe history and allow you to see restaurants you\'ve previously swiped left on. Restaurants in your favorites will still be excluded from Discover. Continue?',
-                [
-                  {
-                    text: 'Cancel',
-                    style: 'cancel'
-                  },
-                  {
-                    text: 'Reset History',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const apiUrl = Platform.OS === 'web' 
-                          ? `http://localhost:5001/api/users/${userData._id}/swiped` 
-                          : `http://192.168.0.82:5001/api/users/${userData._id}/swiped`;
+          {/* Меню профиля */}
+          <View style={styles.menuContainer}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            
+            <TouchableOpacity style={styles.menuItem} onPress={goToFriends}>
+              <View style={[styles.iconContainer, { backgroundColor: COLORS.green.pale }]}>
+                <Ionicons name="people" size={20} color={COLORS.primary} />
+              </View>
+              <Text style={styles.menuText}>Friends</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => navigation.navigate('SavedRestaurants', { user })}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: '#FFEBF0' }]}>
+                <Ionicons name="heart" size={20} color="#FF4081" />
+              </View>
+              <Text style={styles.menuText}>Favorite Restaurants</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('FinalChoice', { user })}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: '#FFF9C4' }]}>
+                <Ionicons name="restaurant" size={20} color="#FFC107" />
+              </View>
+              <Text style={styles.menuText}>My Selected Restaurant</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                Alert.alert(
+                  'Reset Swiped Restaurants',
+                  'This will clear your swipe history and allow you to see restaurants you\'ve previously swiped left on. Restaurants in your favorites will still be excluded from Discover. Continue?',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel'
+                    },
+                    {
+                      text: 'Reset History',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          const apiUrl = Platform.OS === 'web' 
+                            ? `http://localhost:5001/api/users/${userData._id}/swiped` 
+                            : `http://192.168.0.82:5001/api/users/${userData._id}/swiped`;
+                            
+                          const response = await axios.delete(apiUrl);
+                          console.log('Cleared swipe history:', response.data);
                           
-                        const response = await axios.delete(apiUrl);
-                        console.log('Cleared swipe history:', response.data);
-                        
-                        Alert.alert('Success', 'Your swipe history has been cleared. You can now see restaurants you previously swiped left on. Restaurants in your favorites will still be excluded from Discover.');
-                      } catch (error) {
-                        console.error('Error clearing swipe history:', error);
-                        Alert.alert('Error', 'Failed to clear swipe history. Please try again.');
+                          Alert.alert('Success', 'Your swipe history has been cleared. You can now see restaurants you previously swiped left on. Restaurants in your favorites will still be excluded from Discover.');
+                        } catch (error) {
+                          console.error('Error clearing swipe history:', error);
+                          Alert.alert('Error', 'Failed to clear swipe history. Please try again.');
+                        }
                       }
                     }
-                  }
-                ]
-              );
-            }}
+                  ]
+                );
+              }}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: '#E0F7FA' }]}>
+                <Ionicons name="refresh" size={20} color="#00BCD4" />
+              </View>
+              <Text style={styles.menuText}>Reset Swiped Restaurants</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <Text style={styles.sectionTitle}>More</Text>
+            
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={[styles.iconContainer, { backgroundColor: '#E8EAF6' }]}>
+                <Ionicons name="star" size={20} color="#5C6BC0" />
+              </View>
+              <Text style={styles.menuText}>My Reviews</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={[styles.iconContainer, { backgroundColor: '#F3E5F5' }]}>
+                <Ionicons name="notifications" size={20} color="#9C27B0" />
+              </View>
+              <Text style={styles.menuText}>Notifications</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={[styles.iconContainer, { backgroundColor: '#FFF3E0' }]}>
+                <Ionicons name="help-circle" size={20} color="#FF9800" />
+              </View>
+              <Text style={styles.menuText}>Help & Support</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Кнопка выхода */}
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={handleLogout}
           >
-            <Ionicons name="refresh-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>Reset Swiped Restaurants</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            <Ionicons name="log-out-outline" size={20} color={COLORS.error} style={styles.logoutIcon} />
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="star-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>My Reviews</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="settings-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>Settings</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="help-circle-outline" size={24} color={COLORS.text.primary} style={styles.menuIcon} />
-            <Text style={styles.menuText}>Help & Support</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
-          </TouchableOpacity>
+          <View style={styles.footer}>
+            <Text style={styles.versionText}>Swipy v1.0</Text>
+          </View>
         </View>
-        
-        {/* Кнопка выхода */}
-        <ActionButton 
-          title="Logout" 
-          icon="log-out-outline" 
-          onPress={handleLogout} 
-          type="secondary"
-          style={styles.logoutButton}
-        />
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
@@ -192,47 +272,89 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.padding.lg,
-    backgroundColor: COLORS.card,
-    ...SHADOWS.small,
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...SHADOWS.medium,
   },
-  profileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerContent: {
+    height: '100%',
+    width: '100%',
+  },
+  headerImage: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
   },
   avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginRight: SIZES.padding.md,
+    alignSelf: 'center',
+    borderWidth: 4,
+    borderColor: COLORS.background,
+    ...SHADOWS.medium,
+    zIndex: 2,
   },
-  userInfo: {
-    justifyContent: 'center',
+  profileNameSection: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingHorizontal: SIZES.padding.lg,
+    zIndex: 2,
   },
   userName: {
     ...FONTS.h2,
     color: COLORS.text.primary,
+    marginTop: SIZES.padding.xs,
   },
   userEmail: {
     ...FONTS.body,
     color: COLORS.text.secondary,
+    marginBottom: SIZES.padding.xs,
   },
   editButton: {
-    padding: SIZES.padding.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: SIZES.radius.round,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    marginTop: SIZES.padding.xs,
+  },
+  editButtonText: {
+    color: '#fff',
+    ...FONTS.body,
+    marginLeft: 4,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    paddingTop: 170,  // Reduced space for header and avatar
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    padding: SIZES.padding.md,
+    paddingVertical: SIZES.padding.lg,
     backgroundColor: COLORS.card,
-    marginTop: SIZES.padding.sm,
+    marginHorizontal: SIZES.padding.lg,
+    borderRadius: SIZES.radius.lg,
     ...SHADOWS.small,
   },
   statItem: {
@@ -249,21 +371,37 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
+    height: '60%',
+    alignSelf: 'center',
     backgroundColor: COLORS.border,
   },
+  sectionTitle: {
+    ...FONTS.h3,
+    color: COLORS.text.secondary,
+    marginHorizontal: SIZES.padding.lg,
+    marginTop: SIZES.padding.lg,
+    marginBottom: SIZES.padding.xs,
+  },
   menuContainer: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.background,
     marginTop: SIZES.padding.md,
-    ...SHADOWS.small,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SIZES.padding.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    marginHorizontal: SIZES.padding.lg,
+    marginVertical: SIZES.padding.xs,
+    borderRadius: SIZES.radius.md,
+    backgroundColor: COLORS.card,
+    ...SHADOWS.small,
   },
-  menuIcon: {
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: SIZES.padding.md,
   },
   menuText: {
@@ -272,6 +410,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoutButton: {
-    margin: SIZES.padding.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: SIZES.padding.lg,
+    marginTop: SIZES.padding.xl,
+    marginBottom: SIZES.padding.md,
+    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.md,
+    borderWidth: 1,
+    borderColor: COLORS.error,
   },
+  logoutIcon: {
+    marginRight: SIZES.padding.xs,
+  },
+  logoutText: {
+    ...FONTS.body,
+    color: COLORS.error,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingBottom: SIZES.padding.xl,
+    marginTop: SIZES.padding.md,
+  },
+  versionText: {
+    ...FONTS.small,
+    color: COLORS.text.light,
+  }
 }); 

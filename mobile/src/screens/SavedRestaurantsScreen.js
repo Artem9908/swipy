@@ -21,6 +21,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   const [savedRestaurants, setSavedRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [removingId, setRemovingId] = useState(null); // Track which restaurant is being removed
 
   useEffect(() => {
     fetchSavedRestaurants();
@@ -57,18 +58,19 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
     }
     
     try {
+      setLoading(true);
+      
       // Use localhost for web or IP for devices
-      const apiUrl = Platform.OS === 'web' 
-        ? `http://localhost:5001/api/users/${user._id}/likes` 
-        : `http://192.168.0.82:5001/api/users/${user._id}/likes`;
+      const baseUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001' 
+        : 'http://192.168.0.82:5001';
+        
+      const apiUrl = `${baseUrl}/api/users/${user._id}/likes`;
         
       console.log('Fetching saved restaurants from:', apiUrl);
-      console.log('User ID:', user._id);
       
       const res = await axios.get(apiUrl);
       console.log('Response status:', res.status);
-      console.log('Response headers:', res.headers);
-      console.log('Received saved restaurants data:', JSON.stringify(res.data, null, 2));
       
       if (!res.data) {
         console.error('No data received from server');
@@ -84,24 +86,27 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
         return;
       }
       
+      // Validate each restaurant has a valid ID
+      const validatedRestaurants = res.data.filter(restaurant => {
+        if (!restaurant.restaurantId) {
+          console.error('Restaurant missing ID:', restaurant);
+          return false;
+        }
+        return true;
+      });
+      
       // Sort by date (newest first)
-      const sortedRestaurants = res.data.sort((a, b) => 
+      const sortedRestaurants = validatedRestaurants.sort((a, b) => 
         new Date(b.timestamp) - new Date(a.timestamp)
       );
+      
+      console.log(`Successfully loaded ${sortedRestaurants.length} saved restaurants`);
       
       setSavedRestaurants(sortedRestaurants);
       setLoading(false);
       setError(null);
     } catch (e) {
       console.error('Error fetching saved restaurants:', e);
-      if (e.response) {
-        console.error('Error response status:', e.response.status);
-        console.error('Error response data:', e.response.data);
-      } else if (e.request) {
-        console.error('No response received:', e.request);
-      } else {
-        console.error('Error message:', e.message);
-      }
       setError('Failed to load saved restaurants');
       setLoading(false);
     }
@@ -123,122 +128,153 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
     navigation.navigate('RestaurantDetail', { restaurant: restaurantDetails, user });
   };
 
-  const confirmRemove = (restaurantId, restaurantName) => {
-    console.log('Confirming removal of restaurant:', restaurantId, restaurantName);
+  // New function to handle restaurant removal
+  const handleRemoveRestaurant = (restaurantId, restaurantName) => {
+    console.log(`Starting removal process for restaurant: ${restaurantId} (${restaurantName})`);
     
     Alert.alert(
-      'Удаление ресторана',
-      `Вы действительно хотите удалить "${restaurantName}" из избранного?`,
+      'Remove Restaurant',
+      `Remove "${restaurantName}" from favorites?`,
       [
-        {
-          text: 'Отмена',
-          style: 'cancel'
-        },
-        {
-          text: 'Удалить',
-          onPress: () => {
-            console.log('User confirmed removal');
-            removeFromSaved(restaurantId);
-          },
-          style: 'destructive'
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
+          style: 'destructive',
+          onPress: () => removeRestaurant(restaurantId, restaurantName)
         }
       ]
     );
   };
 
-  const removeFromSaved = async (restaurantId) => {
+  // Separate function to handle the actual removal
+  const removeRestaurant = async (restaurantId, restaurantName) => {
+    if (!restaurantId) {
+      console.error('Cannot remove: restaurantId is missing');
+      return;
+    }
+    
     try {
-      console.log('Removing restaurant from saved:', restaurantId);
-      console.log('User ID:', user._id);
+      console.log(`Removing restaurant ${restaurantId} (${restaurantName}) from favorites`);
+      setRemovingId(restaurantId); // Mark this restaurant as being removed
       
-      const apiUrl = Platform.OS === 'web' 
-        ? `http://localhost:5001/api/users/${user._id}/likes/${restaurantId}` 
-        : `http://192.168.0.82:5001/api/users/${user._id}/likes/${restaurantId}`;
-        
-      console.log('API URL for delete request:', apiUrl);
+      // Construct API URL
+      const baseUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001' 
+        : 'http://192.168.0.82:5001';
       
-      const response = await axios.delete(apiUrl);
-      console.log('Delete response:', response.status, response.data);
+      const apiUrl = `${baseUrl}/api/users/${user._id}/likes/${restaurantId}`;
+      console.log('DELETE request URL:', apiUrl);
       
-      // Обновление локального состояния после успешного удаления
-      setSavedRestaurants(prevState => prevState.filter(restaurant => restaurant.restaurantId !== restaurantId));
-      
-      // Отправим уведомление об изменении в избранном 
-      // Так приложение сможет обновить фильтрацию в других экранах
-      Alert.alert(
-        'Удалено из избранного',
-        'Ресторан удалён из избранного. Теперь он может снова появиться во вкладке Discover.',
-        [
-          { text: 'OK' }
-        ]
+      // Optimistic UI update - remove immediately
+      setSavedRestaurants(prev => 
+        prev.filter(r => r.restaurantId !== restaurantId)
       );
       
-      // Небольшая задержка перед обновлением списка
-      setTimeout(() => {
-        fetchSavedRestaurants();
-      }, 300);
+      // Use XMLHttpRequest instead of axios
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('DELETE', apiUrl, true);
+        
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            console.log('DELETE success, response:', xhr.responseText);
+            resolve(xhr.responseText);
+          } else {
+            console.error('DELETE failed, status:', xhr.status, 'response:', xhr.responseText);
+            reject(new Error(`DELETE failed with status ${xhr.status}`));
+          }
+        };
+        
+        xhr.onerror = function() {
+          console.error('Network error during DELETE request');
+          reject(new Error('Network error'));
+        };
+        
+        xhr.send();
+      });
       
-    } catch (e) {
-      console.error('Error removing from saved:', e);
-      if (e.response) {
-        console.error('Error response status:', e.response.status);
-        console.error('Error response data:', e.response.data);
-      } else if (e.request) {
-        console.error('No response received:', e.request);
-      } else {
-        console.error('Error message:', e.message);
-      }
-      Alert.alert('Error', 'Failed to remove from saved restaurants');
+    } catch (error) {
+      console.error('Error removing restaurant:', error);
+      
+      // Revert the optimistic update on failure
+      fetchSavedRestaurants();
+      
+      // Show error to user
+      Alert.alert(
+        'Error',
+        'Failed to remove restaurant. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setRemovingId(null); // Clear the removing state
     }
   };
 
-  const renderRestaurantItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.restaurantCard}
-      onPress={() => viewRestaurantDetails(item)}
-    >
-      <View style={styles.cardContent}>
-        <Image 
-          source={{ uri: item.image || 'https://via.placeholder.com/100?text=No+Image' }} 
-          style={styles.restaurantImage} 
-        />
-        <View style={styles.restaurantInfo}>
-          <Text style={styles.restaurantName} numberOfLines={1}>{item.restaurantName}</Text>
-          
-          <View style={styles.detailsRow}>
-            {item.cuisine && (
-              <Text style={styles.cuisine}>{item.cuisine}</Text>
-            )}
-            {item.priceRange && (
-              <Text style={styles.price}>{item.priceRange}</Text>
-            )}
-            {item.rating && (
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={16} color={COLORS.warning} />
-                <Text style={styles.rating}>{item.rating}</Text>
-              </View>
-            )}
-          </View>
-          
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={16} color={COLORS.text.secondary} />
-            <Text style={styles.location} numberOfLines={1}>{item.location}</Text>
-          </View>
-          
-          <Text style={styles.savedDate}>Saved on {formatDate(item.timestamp)}</Text>
-        </View>
-      </View>
-      
+  const renderRestaurantItem = ({ item }) => {
+    const isRemoving = item.restaurantId === removingId;
+    
+    return (
       <TouchableOpacity 
-        style={styles.removeButton}
-        onPress={() => confirmRemove(item.restaurantId, item.restaurantName)}
-        activeOpacity={0.7}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        style={[
+          styles.restaurantCard,
+          isRemoving && { opacity: 0.5 } // Visual feedback while removing
+        ]}
+        onPress={() => viewRestaurantDetails(item)}
+        disabled={isRemoving}
       >
-        <Ionicons name="heart-dislike" size={24} color={COLORS.error} />
+        <View style={styles.cardContent}>
+          <Image 
+            source={{ uri: item.image || 'https://via.placeholder.com/100?text=No+Image' }} 
+            style={styles.restaurantImage} 
+          />
+          <View style={styles.restaurantInfo}>
+            <Text style={styles.restaurantName} numberOfLines={1}>{item.restaurantName}</Text>
+            
+            <View style={styles.detailsRow}>
+              {item.cuisine && (
+                <Text style={styles.cuisine}>{item.cuisine}</Text>
+              )}
+              {item.priceRange && (
+                <Text style={styles.price}>{item.priceRange}</Text>
+              )}
+              {item.rating && (
+                <View style={styles.ratingContainer}>
+                  <Ionicons name="star" size={16} color={COLORS.warning} />
+                  <Text style={styles.rating}>{item.rating}</Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={16} color={COLORS.text.secondary} />
+              <Text style={styles.location} numberOfLines={1}>{item.location}</Text>
+            </View>
+            
+            <Text style={styles.savedDate}>Saved on {formatDate(item.timestamp)}</Text>
+          </View>
+        </View>
+        
+        <TouchableOpacity 
+          style={[
+            styles.removeButton,
+            isRemoving && styles.removingButton
+          ]}
+          onPress={() => {
+            // Direct removal function without confirmation dialog for better user experience
+            removeRestaurant(item.restaurantId, item.restaurantName);
+          }}
+          disabled={isRemoving}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }} // Larger touch area
+        >
+          {isRemoving ? (
+            <ActivityIndicator size="small" color={COLORS.error} />
+          ) : (
+            <Ionicons name="heart-dislike" size={24} color={COLORS.error} />
+          )}
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -466,6 +502,15 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: COLORS.border,
     width: 60,
+    minHeight: 80,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  removingButton: {
+    backgroundColor: COLORS.background + '80',
   },
   chooseTournamentButton: {
     flexDirection: 'row',

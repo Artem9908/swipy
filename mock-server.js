@@ -863,8 +863,14 @@ app.get('/api/users/:userId/friends', (req, res) => {
 app.get('/api/users/:userId/likes', (req, res) => {
   const { userId } = req.params;
   
-  // Get likes for this user
+  console.log(`GET request for user ${userId}'s likes`);
+  console.log(`Total likes in database: ${likes.length}`);
+  
+  // Find all likes for this user
   const userLikes = likes.filter(like => like.userId === userId);
+  
+  console.log(`Found ${userLikes.length} likes for user ${userId}`);
+  console.log('Sample like entry:', userLikes.length > 0 ? JSON.stringify(userLikes[0]) : 'None');
   
   return res.json(userLikes);
 });
@@ -973,19 +979,33 @@ app.get('/api/diagnostic/likes', (req, res) => {
 app.delete('/api/users/:userId/likes/:restaurantId', (req, res) => {
   const { userId, restaurantId } = req.params;
   
+  console.log(`DELETE request received - Removing restaurant ${restaurantId} from user ${userId}'s likes`);
+  console.log(`Current likes count: ${likes.length}`);
+  console.log(`All likes before deletion:`, JSON.stringify(likes));
+  
   // Find the index of the like to remove
   const likeIndex = likes.findIndex(like => 
     like.userId === userId && like.restaurantId === restaurantId
   );
   
+  console.log(`Found like at index: ${likeIndex}`);
+  
   if (likeIndex === -1) {
+    console.log(`Like not found for userId: ${userId}, restaurantId: ${restaurantId}`);
+    console.log(`All existing like IDs:`, likes.map(like => like.restaurantId).join(', '));
     return res.status(404).json({ error: 'Like not found' });
   }
   
   // Remove the like
   const removedLike = likes.splice(likeIndex, 1)[0];
+  console.log(`Removed like for restaurant: ${removedLike.restaurantName || 'unknown'}`);
+  console.log(`New likes count: ${likes.length}`);
   
-  return res.json(removedLike);
+  return res.json({ 
+    success: true, 
+    message: 'Restaurant removed from favorites',
+    removedLike
+  });
 });
 
 // API для работы с инвайт-кодами и статусами пользователей
@@ -1002,442 +1022,16 @@ app.get('/api/friends/generate-code/:userId', (req, res) => {
   }
   
   // Генерируем уникальный код
-  const generateUniqueCode = () => {
-    const prefix = 'swipy';
-    const randomDigits = Math.floor(100 + Math.random() * 900); // 3-значное число
-    const randomChars = Math.random().toString(36).substring(2, 5); // 3 случайных символа
-    return `${prefix}${randomDigits}${randomChars}`;
-  };
-  
-  let newCode = generateUniqueCode();
-  // Проверяем, что код уникальный
-  while (inviteCodes.some(code => code.code === newCode)) {
-    newCode = generateUniqueCode();
-  }
-  
-  // Сохраняем код
-  const inviteCode = {
-    code: newCode,
+  const newCode = {
+    code: generateUniqueId(),
     userId,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Срок действия 7 дней
-    isUsed: false
-  };
-  
-  inviteCodes.push(inviteCode);
-  
-  return res.json({ code: newCode });
-});
-
-// Добавление друга по коду
-app.post('/api/friends/add-by-code', (req, res) => {
-  const { userId, inviteCode } = req.body;
-  
-  // Находим инвайт-код
-  const code = inviteCodes.find(code => 
-    code.code === inviteCode && 
-    !code.isUsed && 
-    new Date(code.expiresAt) > new Date()
-  );
-  
-  if (!code) {
-    return res.status(404).json({ 
-      success: false, 
-      message: 'Код не найден или истек срок его действия' 
-    });
-  }
-  
-  // Проверяем, что пользователь не пытается добавить сам себя
-  if (code.userId === userId) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Вы не можете добавить себя в друзья' 
-    });
-  }
-  
-  // Проверяем, что пользователи еще не друзья
-  const alreadyFriends = friends.some(
-    f => (f.userId === userId && f.friendId === code.userId) ||
-         (f.userId === code.userId && f.friendId === userId)
-  );
-  
-  if (alreadyFriends) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Вы уже являетесь друзьями с этим пользователем' 
-    });
-  }
-  
-  // Добавляем дружбу в обе стороны
-  friends.push({ userId, friendId: code.userId });
-  friends.push({ userId: code.userId, friendId: userId });
-  
-  // Отмечаем код как использованный
-  code.isUsed = true;
-  code.usedBy = userId;
-  code.usedAt = new Date().toISOString();
-  
-  return res.json({ 
-    success: true, 
-    message: 'Друг успешно добавлен',
-    friend: users.find(user => user._id === code.userId)
-  });
-});
-
-// Получение статусов пользователей
-app.post('/api/users/status', (req, res) => {
-  const { userIds } = req.body;
-  
-  if (!userIds || !Array.isArray(userIds)) {
-    return res.status(400).json({ error: 'Неверный формат запроса' });
-  }
-  
-  const statuses = userIds.map(userId => {
-    const status = userStatuses[userId] || {
-      isOnline: false,
-      lastSwipedAt: null,
-      hasMatches: false
-    };
-    
-    return {
-      userId,
-      ...status
-    };
-  });
-  
-  return res.json(statuses);
-});
-
-// Обновление статуса пользователя
-app.put('/api/users/:userId/status', (req, res) => {
-  const { userId } = req.params;
-  const { isOnline, lastSwipedAt, hasMatches } = req.body;
-  
-  // Инициализируем статус, если его еще нет
-  if (!userStatuses[userId]) {
-    userStatuses[userId] = {
-      isOnline: false,
-      lastSwipedAt: null,
-      hasMatches: false
-    };
-  }
-  
-  // Обновляем статус
-  if (isOnline !== undefined) userStatuses[userId].isOnline = isOnline;
-  if (lastSwipedAt !== undefined) userStatuses[userId].lastSwipedAt = lastSwipedAt;
-  if (hasMatches !== undefined) userStatuses[userId].hasMatches = hasMatches;
-  
-  return res.json({ 
-    success: true, 
-    status: userStatuses[userId] 
-  });
-});
-
-// API для чатов
-app.get('/api/chat/:userId', (req, res) => {
-  const { userId } = req.params;
-  console.log(`Fetching chats for user: ${userId}`);
-  
-  // Проверка наличия пользователя
-  const user = users.find(u => u._id === userId);
-  if (!user) {
-    console.log(`User with ID ${userId} not found`);
-    return res.status(404).json({ error: 'User not found' });
-  }
-  
-  // Получаем все сообщения, где пользователь отправитель или получатель
-  const userMessages = messages.filter(message => 
-    message.userId === userId || message.recipientId === userId
-  );
-  
-  if (userMessages.length === 0) {
-    console.log(`No messages found for user: ${userId}`);
-    return res.json([]);
-  }
-  
-  // Группируем сообщения по собеседникам
-  const conversations = {};
-  
-  userMessages.forEach(message => {
-    const otherUserId = message.userId === userId ? message.recipientId : message.userId;
-    
-    if (!conversations[otherUserId]) {
-      conversations[otherUserId] = [];
-    }
-    
-    conversations[otherUserId].push(message);
-  });
-  
-  // Сортируем сообщения в каждой беседе по времени
-  Object.keys(conversations).forEach(otherUserId => {
-    conversations[otherUserId].sort((a, b) => 
-      new Date(a.timestamp) - new Date(b.timestamp)
-    );
-  });
-  
-  // Получаем информацию о пользователях
-  const conversationUsers = Object.keys(conversations).map(otherUserId => {
-    const user = users.find(u => u._id === otherUserId);
-    
-    if (!user) {
-      console.log(`User not found for id: ${otherUserId}`);
-      return null;
-    }
-    
-    // Получаем последнее сообщение для предпросмотра
-    const lastMessage = conversations[otherUserId][conversations[otherUserId].length - 1];
-    
-    return {
-      _id: user._id,
-      username: user.username,
-      name: user.name || user.username,
-      lastMessage
-    };
-  }).filter(Boolean); // Фильтруем null значения
-  
-  console.log(`Returning ${conversationUsers.length} conversations`);
-  return res.json(conversationUsers);
-});
-
-// Получение сообщений для конкретного собеседника
-app.get('/api/chat/:userId/:otherUserId', (req, res) => {
-  const { userId, otherUserId } = req.params;
-  console.log(`Fetching messages between user ${userId} and ${otherUserId}`);
-  
-  // Проверяем существование пользователей
-  const user = users.find(u => u._id === userId);
-  const otherUser = users.find(u => u._id === otherUserId);
-  
-  if (!user || !otherUser) {
-    console.log(`One of the users not found: user (${userId}): ${!!user}, otherUser (${otherUserId}): ${!!otherUser}`);
-    return res.status(404).json({ error: 'User not found' });
-  }
-  
-  // Получаем сообщения между двумя пользователями
-  const conversationMessages = messages.filter(message => 
-    (message.userId === userId && message.recipientId === otherUserId) ||
-    (message.userId === otherUserId && message.recipientId === userId)
-  );
-  
-  // Сортируем сообщения по времени
-  conversationMessages.sort((a, b) => 
-    new Date(a.timestamp) - new Date(b.timestamp)
-  );
-  
-  // Помечаем сообщения как прочитанные
-  messages = messages.map(message => {
-    if (message.userId === otherUserId && message.recipientId === userId && !message.read) {
-      return { ...message, read: true };
-    }
-    return message;
-  });
-  
-  console.log(`Found ${conversationMessages.length} messages between users`);
-  return res.json(conversationMessages);
-});
-
-// API для совпадений (matches)
-app.get('/api/matches/:userId/:restaurantId', (req, res) => {
-  const { userId, restaurantId } = req.params;
-  
-  // Получаем друзей пользователя
-  const userFriends = friends
-    .filter(f => f.userId === userId)
-    .map(f => f.friendId);
-  
-  // Находим лайки ресторана от друзей
-  const friendsWhoLiked = likes
-    .filter(like => 
-      userFriends.includes(like.userId) && 
-      like.restaurantId === restaurantId
-    )
-    .map(like => like.userId);
-  
-  // Получаем уникальных друзей
-  const uniqueFriendsWhoLiked = [...new Set(friendsWhoLiked)];
-  
-  return res.json({ matches: uniqueFriendsWhoLiked });
-});
-
-// Получение совпадений по ресторанам
-app.get('/api/users/:userId/matches', (req, res) => {
-  const { userId } = req.params;
-  
-  // Находим друзей пользователя
-  const userFriends = friends
-    .filter(f => f.userId === userId)
-    .map(f => f.friendId);
-  
-  if (!userFriends.length) {
-    return res.json([]);
-  }
-  
-  // Находим лайки пользователя
-  const userLikes = likes.filter(like => like.userId === userId);
-  
-  // Находим совпадения - рестораны, которые лайкнули и пользователь, и его друзья
-  const matches = [];
-  
-  userLikes.forEach(userLike => {
-    // Ищем друзей, которые лайкнули тот же ресторан
-    const friendsWhoLiked = likes.filter(like => 
-      userFriends.includes(like.userId) && 
-      like.restaurantId === userLike.restaurantId
-    );
-    
-    friendsWhoLiked.forEach(friendLike => {
-      matches.push({
-        friendId: friendLike.userId,
-        restaurantId: friendLike.restaurantId,
-        restaurantName: friendLike.restaurantName,
-        restaurantImage: friendLike.image,
-        matchTimestamp: new Date().toISOString() // В реальном приложении здесь был бы актуальный timestamp
-      });
-    });
-  });
-  
-  return res.json(matches);
-});
-
-// API endpoint to save a user's selected restaurant (final choice after tournament)
-app.post('/api/users/:userId/selected-restaurant', (req, res) => {
-  const { userId } = req.params;
-  const { 
-    restaurantId, 
-    restaurantName, 
-    image, 
-    cuisine, 
-    priceRange, 
-    rating, 
-    location 
-  } = req.body;
-  
-  if (!userId || !restaurantId) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
-  
-  // Check if user already has a selected restaurant
-  const existingIndex = selectedRestaurants.findIndex(
-    selection => selection.userId === userId
-  );
-  
-  const selection = {
-    userId,
-    restaurantId,
-    restaurantName,
-    image,
-    cuisine,
-    priceRange,
-    rating,
-    location,
+    isUsed: false,
     timestamp: new Date().toISOString()
   };
   
-  if (existingIndex >= 0) {
-    // Update existing selection
-    selectedRestaurants[existingIndex] = selection;
-  } else {
-    // Add new selection
-    selectedRestaurants.push(selection);
-  }
+  inviteCodes.push(newCode);
   
-  return res.status(201).json(selection);
-});
-
-// Get a user's selected restaurant
-app.get('/api/users/:userId/selected-restaurant', (req, res) => {
-  const { userId } = req.params;
-  
-  const selection = selectedRestaurants.find(
-    selection => selection.userId === userId
-  );
-  
-  if (!selection) {
-    return res.status(404).json({ message: 'No selected restaurant found' });
-  }
-  
-  return res.json(selection);
-});
-
-// Add a swiped restaurant to history (for both likes and dislikes)
-app.post('/api/users/:userId/swiped', (req, res) => {
-  const { userId } = req.params;
-  const { restaurantId, restaurantName, direction } = req.body;
-  
-  if (!userId || !restaurantId) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
-  
-  // Check if this restaurant is already in the user's swipe history
-  const existingSwipe = swipeHistory.find(
-    swipe => swipe.userId === userId && swipe.restaurantId === restaurantId
-  );
-  
-  if (existingSwipe) {
-    // If already swiped, just update the timestamp and direction
-    existingSwipe.timestamp = new Date().toISOString();
-    existingSwipe.direction = direction || existingSwipe.direction;
-    return res.json(existingSwipe);
-  }
-  
-  // Add new swipe to history
-  const newSwipe = {
-    userId,
-    restaurantId,
-    restaurantName: restaurantName || 'Unknown Restaurant',
-    direction: direction || 'left', // default to 'left' if not specified
-    timestamp: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // Expire after 14 days
-  };
-  
-  swipeHistory.push(newSwipe);
-  
-  return res.status(201).json(newSwipe);
-});
-
-// Check if a restaurant has been swiped before
-app.get('/api/users/:userId/swiped/:restaurantId', (req, res) => {
-  const { userId, restaurantId } = req.params;
-  
-  const swipe = swipeHistory.find(
-    swipe => swipe.userId === userId && swipe.restaurantId === restaurantId
-  );
-  
-  return res.json({ 
-    isSwiped: !!swipe,
-    direction: swipe ? swipe.direction : null
-  });
-});
-
-// Get all swiped restaurants for a user
-app.get('/api/users/:userId/swiped', (req, res) => {
-  const { userId } = req.params;
-  
-  // Filter expired swipe history
-  const now = new Date().toISOString();
-  const validSwipes = swipeHistory.filter(
-    swipe => swipe.userId === userId && swipe.expiresAt > now
-  );
-  
-  return res.json(validSwipes);
-});
-
-// Clear swipe history for a user
-app.delete('/api/users/:userId/swiped', (req, res) => {
-  const { userId } = req.params;
-  
-  // Count how many swipes will be deleted
-  const initialCount = swipeHistory.length;
-  
-  // Remove all swipes for this user
-  swipeHistory = swipeHistory.filter(swipe => swipe.userId !== userId);
-  
-  const deletedCount = initialCount - swipeHistory.length;
-  
-  return res.json({ 
-    success: true, 
-    message: `Cleared ${deletedCount} swipe records`
-  });
+  return res.json({ code: newCode.code });
 });
 
 const PORT = process.env.PORT || 5001;

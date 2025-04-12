@@ -133,7 +133,7 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.logoPlaceholder}>
               <Ionicons name="restaurant" size={60} color={COLORS.primary} />
             </View>
-            <Text style={styles.appName}>Restaurant App</Text>
+            <Text style={styles.appName}>Swipy</Text>
             <Text style={styles.tagline}>Discover and book the best restaurants</Text>
           </View>
           

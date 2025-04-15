@@ -36,10 +36,28 @@ export default function TournamentScreen({ navigation, route }) {
   const leftCardAnim = React.useRef(new Animated.Value(0)).current;
   const rightCardAnim = React.useRef(new Animated.Value(0)).current;
   
+  // Cache restaurantsForTournament in state to avoid re-shuffling on rerenders
+  const [initialRestaurants] = useState(
+    savedRestaurants && savedRestaurants.length >= 2 
+      ? [...savedRestaurants] 
+      : []
+  );
+  
+  // Use requestAnimationFrame to smooth out animations
   useEffect(() => {
-    if (savedRestaurants && savedRestaurants.length >= 2) {
+    if (isFinished || !savedRestaurants || savedRestaurants.length < 2) return;
+    
+    // Only reset if we don't already have a tournament running
+    if (tournament.length === 0) {
+      console.log('Tournament parameters changed, resetting state');
+      
+      // Reset animations
+      leftCardAnim.setValue(0);
+      rightCardAnim.setValue(0);
+      
+      // Use initialRestaurants to avoid dependency on savedRestaurants
       // Shuffle the restaurants to randomize the tournament
-      const shuffled = [...savedRestaurants].sort(() => 0.5 - Math.random());
+      const shuffled = [...initialRestaurants].sort(() => 0.5 - Math.random());
       
       // Calculate total number of rounds based on restaurant count
       const rounds = Math.ceil(Math.log2(shuffled.length));
@@ -50,13 +68,6 @@ export default function TournamentScreen({ navigation, route }) {
       
       // Set the first pair
       setupNextPair(shuffled);
-    } else {
-      // Not enough restaurants
-      Alert.alert(
-        'Not Enough Restaurants',
-        'You need at least 2 restaurants to make a choice',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
     }
     
     // Cleanup cancel tokens on unmount
@@ -66,7 +77,7 @@ export default function TournamentScreen({ navigation, route }) {
         cancelTokenRef.current = null;
       }
     };
-  }, []);
+  }, [route.params?.timestamp]); // Only depend on timestamp for resets
   
   const setupNextPair = (currentTournament) => {
     if (!currentTournament || currentTournament.length <= 1) {
@@ -320,45 +331,39 @@ export default function TournamentScreen({ navigation, route }) {
             </View>
           </View>
           
-          <View style={styles.winnerButtons}>
-            <TouchableOpacity style={styles.mapButton} onPress={openOnMap}>
-              <Ionicons name="map-outline" size={20} color={COLORS.text.inverse} />
-              <Text style={styles.buttonText}>Open on Map</Text>
+          <View style={styles.winnerActions}>
+            <TouchableOpacity 
+              style={styles.winnerActionButton}
+              onPress={shareRestaurant}
+            >
+              <Ionicons name="share-social" size={20} color="#fff" />
+              <Text style={styles.winnerActionButtonText}>Share</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.shareButton} onPress={shareRestaurant}>
-              <Ionicons name="share-social-outline" size={20} color={COLORS.text.inverse} />
-              <Text style={styles.buttonText}>Share</Text>
+            <TouchableOpacity 
+              style={styles.winnerActionButton}
+              onPress={shareWithFriend}
+            >
+              <Ionicons name="people" size={20} color="#fff" />
+              <Text style={styles.winnerActionButtonText}>Invite Friends</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.winnerActionButton}
+              onPress={openOnMap}
+            >
+              <Ionicons name="location" size={20} color="#fff" />
+              <Text style={styles.winnerActionButtonText}>View on Map</Text>
             </TouchableOpacity>
           </View>
           
+          {/* Button to view selected restaurant */}
           <TouchableOpacity 
-            style={styles.friendShareButton} 
-            onPress={shareWithFriend}
+            style={styles.viewSelectedButton}
+            onPress={() => navigation.navigate('FinalChoice', { user })}
           >
-            <Ionicons name="people-outline" size={20} color={COLORS.text.inverse} />
-            <Text style={styles.buttonText}>Invite a Friend</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.viewDetailsButton} 
-            onPress={() => {
-              navigation.navigate('RestaurantDetail', { 
-                restaurant: {
-                  _id: winner.restaurantId,
-                  place_id: winner.restaurantId,
-                  name: winner.restaurantName,
-                  image: winner.image,
-                  cuisine: winner.cuisine,
-                  priceRange: winner.priceRange,
-                  rating: winner.rating,
-                  address: winner.location
-                }, 
-                user
-              });
-            }}
-          >
-            <Text style={styles.viewDetailsButtonText}>View Restaurant Details</Text>
+            <Ionicons name="restaurant" size={20} color="#fff" />
+            <Text style={styles.viewSelectedButtonText}>My Selected Restaurant</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -684,13 +689,13 @@ const styles = StyleSheet.create({
     marginLeft: SIZES.padding.xs,
     flex: 1,
   },
-  winnerButtons: {
+  winnerActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
     marginTop: SIZES.padding.xl,
   },
-  mapButton: {
+  winnerActionButton: {
     flex: 1,
     flexDirection: 'row',
     backgroundColor: COLORS.primary,
@@ -698,21 +703,26 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SIZES.padding.sm,
+    marginHorizontal: SIZES.padding.xs,
     ...SHADOWS.medium,
   },
-  shareButton: {
-    flex: 1,
+  winnerActionButtonText: {
+    ...FONTS.body,
+    color: COLORS.text.inverse,
+    marginLeft: SIZES.padding.xs,
+  },
+  viewSelectedButton: {
     flexDirection: 'row',
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.primary,
     padding: SIZES.padding.md,
     borderRadius: SIZES.radius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: SIZES.padding.sm,
+    marginTop: SIZES.padding.xl,
+    width: '100%',
     ...SHADOWS.medium,
   },
-  buttonText: {
+  viewSelectedButtonText: {
     ...FONTS.body,
     color: COLORS.text.inverse,
     marginLeft: SIZES.padding.xs,
@@ -724,27 +734,5 @@ const styles = StyleSheet.create({
   backButtonText: {
     ...FONTS.body,
     color: COLORS.text.secondary,
-  },
-  friendShareButton: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.success,
-    padding: SIZES.padding.md,
-    borderRadius: SIZES.radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SIZES.padding.lg,
-    width: '100%',
-    ...SHADOWS.medium,
-  },
-  viewDetailsButton: {
-    marginTop: SIZES.padding.lg,
-    padding: SIZES.padding.sm,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: SIZES.radius.md,
-  },
-  viewDetailsButtonText: {
-    ...FONTS.body,
-    color: COLORS.primary,
   },
 }); 

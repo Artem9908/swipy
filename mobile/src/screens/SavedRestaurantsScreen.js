@@ -25,23 +25,37 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   const [removingId, setRemovingId] = useState(null); // Track which restaurant is being removed
   const [refreshing, setRefreshing] = useState(false); // Add missing refreshing state
   
-  // Refs for controlling the fetch process
-  const isFetchingRef = useRef(false);
-  const cancelTokenRef = useRef(null);
+  // Refs for managing refresh and request cancellation
   const initialLoadCompleteRef = useRef(false);
+  const cancelTokenRef = useRef(null);
+  const inTournamentRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
   // Focus effect to refresh data when screen comes into focus, but only after initial load
   useFocusEffect(
     useCallback(() => {
-      console.log('SavedRestaurantsScreen focused - refreshing data if needed');
+      console.log('SavedRestaurantsScreen focused');
       
-      // Only refresh if not in initial loading and not currently fetching
-      if (initialLoadCompleteRef.current && !isFetchingRef.current) {
-        fetchSavedRestaurants(false); // Don't show loading indicator for refresh
+      // Skip refresh if we're in tournament mode
+      if (inTournamentRef.current) {
+        console.log('Skipping refresh - in tournament mode');
+        return;
       }
+      
+      // Wait a short time to ensure we're not caught in a navigation transition
+      const timer = setTimeout(() => {
+        // Only refresh if not in initial loading and not currently fetching
+        if (initialLoadCompleteRef.current && !isFetchingRef.current) {
+          console.log('Refreshing restaurants data');
+          fetchSavedRestaurants(false); // Don't show loading indicator for refresh
+        } else {
+          console.log('Skipping refresh - initial load not complete or already fetching');
+        }
+      }, 300);
       
       return () => {
         // Cleanup function when screen loses focus
+        clearTimeout(timer);
         if (cancelTokenRef.current) {
           cancelTokenRef.current.cancel('Screen lost focus');
           cancelTokenRef.current = null;
@@ -90,6 +104,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       console.log('User information is missing:', user);
       setError('User information is missing');
       setLoading(false);
+      initialLoadCompleteRef.current = true; // Mark as complete even on error
       return;
     }
     
@@ -131,6 +146,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
         console.error('No data received from server');
         setError('No data received from server');
         setLoading(false);
+        initialLoadCompleteRef.current = true; // Mark as complete even on error
         return;
       }
       
@@ -138,6 +154,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
         console.error('Invalid response format (not an array):', res.data);
         setError('Invalid response format from server');
         setLoading(false);
+        initialLoadCompleteRef.current = true; // Mark as complete even on error
         return;
       }
       
@@ -188,6 +205,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
         console.error('Error fetching saved restaurants:', e);
         setError('Failed to load saved restaurants');
         setLoading(false);
+        initialLoadCompleteRef.current = true; // Mark as complete even on error
       } else {
         console.log('Fetch saved restaurants request was canceled:', e.message);
       }
@@ -370,20 +388,43 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
 
   // New explicit function to start tournament
   const handleStartTournament = () => {
-    if (savedRestaurants.length < 2) {
+    // Prevent navigation if no saved restaurants
+    if (!savedRestaurants || savedRestaurants.length < 2) {
       Alert.alert(
         'Not Enough Restaurants',
-        'You need at least 2 saved restaurants to start a tournament. Add more restaurants to your favorites.',
+        'You need at least 2 saved restaurants to start a tournament',
         [{ text: 'OK' }]
       );
       return;
     }
-    
+
     console.log('Starting tournament with', savedRestaurants.length, 'restaurants');
-    navigation.navigate('Tournament', { 
-      user,
-      savedRestaurants 
-    });
+
+    // Flag that we're entering tournament mode to prevent refresh loops
+    inTournamentRef.current = true;
+    
+    // Cancel any pending requests to avoid conflicts
+    if (cancelTokenRef.current) {
+      cancelTokenRef.current.cancel('Navigation to tournament');
+      cancelTokenRef.current = null;
+    }
+
+    // Navigate with a delay to ensure clean state
+    setTimeout(() => {
+      // Deep clone savedRestaurants to avoid any reference issues
+      const restaurantsCopy = savedRestaurants.map(r => ({...r}));
+      
+      navigation.navigate('Tournament', {
+        savedRestaurants: restaurantsCopy,
+        user,
+        timestamp: Date.now(), // Ensure React treats this as a new route
+      });
+      
+      // Reset the tournament flag after navigation is complete
+      setTimeout(() => {
+        inTournamentRef.current = false;
+      }, 500);
+    }, 100);
   };
 
   // Define the onRefresh function for pull-to-refresh

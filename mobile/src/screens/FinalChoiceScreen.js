@@ -31,12 +31,14 @@ export default function FinalChoiceScreen({ navigation, route }) {
   // Focus effect to refresh data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      console.log('FinalChoiceScreen focused - refreshing data');
       if (!user || !user._id) {
         setError('User information not available');
         setLoading(false);
         return;
       }
       
+      // Always fetch when focused to ensure we have the latest selection
       fetchSelectedRestaurant();
       
       return () => {

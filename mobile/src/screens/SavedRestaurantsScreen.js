@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 
 export default function SavedRestaurantsScreen({ navigation, route }) {
@@ -23,6 +23,19 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   const [error, setError] = useState(null);
   const [removingId, setRemovingId] = useState(null); // Track which restaurant is being removed
 
+  // Focus effect to refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('SavedRestaurantsScreen focused - refreshing data');
+      fetchSavedRestaurants();
+      
+      return () => {
+        // Cleanup function when screen loses focus
+      };
+    }, [user])
+  );
+
+  // Initial load
   useEffect(() => {
     fetchSavedRestaurants();
   }, []);
@@ -103,12 +116,26 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       console.log(`Successfully loaded ${sortedRestaurants.length} saved restaurants`);
       
       setSavedRestaurants(sortedRestaurants);
+      
+      // Update user object in route params to propagate favorites count back to profile
+      if (route.params) {
+        navigation.setParams({
+          user: {
+            ...user,
+            favorites: sortedRestaurants
+          }
+        });
+      }
+      
       setLoading(false);
       setError(null);
+      
+      return sortedRestaurants;
     } catch (e) {
       console.error('Error fetching saved restaurants:', e);
       setError('Failed to load saved restaurants');
       setLoading(false);
+      return [];
     }
   };
 
@@ -166,9 +193,18 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       console.log('DELETE request URL:', apiUrl);
       
       // Optimistic UI update - remove immediately
-      setSavedRestaurants(prev => 
-        prev.filter(r => r.restaurantId !== restaurantId)
-      );
+      const updatedRestaurants = savedRestaurants.filter(r => r.restaurantId !== restaurantId);
+      setSavedRestaurants(updatedRestaurants);
+      
+      // Update user object in route params for propagation
+      if (route.params) {
+        navigation.setParams({
+          user: {
+            ...user,
+            favorites: updatedRestaurants
+          }
+        });
+      }
       
       // Use XMLHttpRequest instead of axios
       return new Promise((resolve, reject) => {

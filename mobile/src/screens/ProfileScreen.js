@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 import ActionButton from '../components/ActionButton';
 import axios from 'axios';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation, route }) {
   const { user } = route.params || {};
@@ -53,10 +54,50 @@ export default function ProfileScreen({ navigation, route }) {
     extrapolate: 'clamp'
   });
 
+  // Add refresh interval reference
+  const [refreshInterval, setRefreshInterval] = useState(null);
+
+  // Use focus effect to fetch data whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('ProfileScreen focused - refreshing data');
+      if (userData && userData._id && userData._id !== 'guest') {
+        fetchUserFavorites();
+        fetchUserFriends();
+        
+        // Set up refresh interval for real-time updates
+        const interval = setInterval(() => {
+          console.log('Periodic refresh - updating friends and favorites');
+          fetchUserFavorites();
+          fetchUserFriends();
+        }, 100); // Refresh every 0.1 seconds
+        
+        setRefreshInterval(interval);
+      }
+      
+      // Cleanup function to clear interval when screen loses focus
+      return () => {
+        console.log('ProfileScreen lost focus - cleaning up interval');
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+        }
+      };
+    }, [userData._id])
+  );
+
+  // Keep the regular useEffect for initial load
   useEffect(() => {
     if (userData && userData._id && userData._id !== 'guest') {
       fetchUserFavorites();
+      fetchUserFriends();
     }
+    
+    // Clean up interval on component unmount
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
   }, [userData._id]);
 
   const fetchUserFavorites = async () => {
@@ -79,6 +120,29 @@ export default function ProfileScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching user favorites:', error);
+    }
+  };
+
+  const fetchUserFriends = async () => {
+    try {
+      const baseUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001' 
+        : 'http://192.168.0.82:5001';
+      
+      const getFriendsUrl = `${baseUrl}/api/users/${userData._id}/friends`;
+      console.log('Fetching user friends from:', getFriendsUrl);
+      
+      const response = await axios.get(getFriendsUrl);
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log(`User has ${response.data.length} friends`);
+        setUserData(prevData => ({
+          ...prevData,
+          friends: response.data
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user friends:', error);
     }
   };
 

@@ -166,8 +166,20 @@ export default function FriendsScreen({ navigation, route }) {
         : 'http://192.168.0.82:5001/api/friends';
         
       await axios.post(apiUrl, { userId: user._id, friendId });
+      
       // Обновляем список друзей
-      fetchFriends();
+      const updatedFriends = await fetchFriends();
+      
+      // Update user object in route params to propagate changes to profile screen
+      if (route.params && updatedFriends) {
+        navigation.setParams({
+          user: {
+            ...user,
+            friends: updatedFriends
+          }
+        });
+      }
+      
       Alert.alert('Success', 'Friend added successfully!');
     } catch (e) {
       console.error('Error adding friend:', e);
@@ -194,8 +206,19 @@ export default function FriendsScreen({ navigation, route }) {
                 : `http://192.168.0.82:5001/api/friends/${user._id}/${friendId}`;
                 
               await axios.delete(apiUrl);
+              
               // Обновляем список друзей
-              fetchFriends();
+              const updatedFriends = await fetchFriends();
+              
+              // Update user object in route params to propagate changes to profile screen
+              if (route.params && updatedFriends) {
+                navigation.setParams({
+                  user: {
+                    ...user,
+                    friends: updatedFriends
+                  }
+                });
+              }
             } catch (e) {
               console.error('Error removing friend:', e);
               Alert.alert('Error', 'Could not remove friend. Please try again.');

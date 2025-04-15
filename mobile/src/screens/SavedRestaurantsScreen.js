@@ -9,7 +9,8 @@ import {
   Alert, 
   Platform,
   SafeAreaView,
-  StyleSheet
+  StyleSheet,
+  RefreshControl
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [removingId, setRemovingId] = useState(null); // Track which restaurant is being removed
+  const [refreshing, setRefreshing] = useState(false); // Add missing refreshing state
   
   // Refs for controlling the fetch process
   const isFetchingRef = useRef(false);
@@ -248,27 +250,20 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       const apiUrl = `${baseUrl}/api/users/${user._id}/likes/${restaurantId}`;
       console.log('DELETE request URL:', apiUrl);
       
-      // Get updated list before removing from UI (to avoid flicker)
-      const updatedRestaurants = savedRestaurants.filter(r => r.restaurantId !== restaurantId);
-      
       // Optimistic UI update - remove immediately
-      setSavedRestaurants(updatedRestaurants);
+      setSavedRestaurants(prev => 
+        prev.filter(r => r.restaurantId !== restaurantId)
+      );
       
-      // Update user object in route params for propagation - more efficient state handling
+      // Update user object in route params for propagation
       if (route.params) {
-        const updatedUser = {
-          ...user,
-          favorites: updatedRestaurants
-        };
-        
-        // Update current route
-        navigation.setParams({ user: updatedUser });
-        
-        // Try to update parent route as well (if we came from profile)
-        const profileScreen = navigation.getParent();
-        if (profileScreen && profileScreen.params) {
-          profileScreen.setParams({ user: updatedUser });
-        }
+        const updatedFavorites = savedRestaurants.filter(r => r.restaurantId !== restaurantId);
+        navigation.setParams({
+          user: {
+            ...user,
+            favorites: updatedFavorites
+          }
+        });
       }
       
       // Cancel any existing requests
@@ -373,63 +368,164 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
     );
   };
 
+  // New explicit function to start tournament
+  const handleStartTournament = () => {
+    if (savedRestaurants.length < 2) {
+      Alert.alert(
+        'Not Enough Restaurants',
+        'You need at least 2 saved restaurants to start a tournament. Add more restaurants to your favorites.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    console.log('Starting tournament with', savedRestaurants.length, 'restaurants');
+    navigation.navigate('Tournament', { 
+      user,
+      savedRestaurants 
+    });
+  };
+
+  // Define the onRefresh function for pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSavedRestaurants(false).finally(() => {
+      setRefreshing(false);
+    });
+  }, []);
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading saved restaurants...</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Saved Restaurants</Text>
+          <View style={styles.headerRight} />
+        </View>
+        
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading saved restaurants...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={60} color={COLORS.error} />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchSavedRestaurants}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Saved Restaurants</Text>
+          <View style={styles.headerRight} />
+        </View>
+        
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={60} color={COLORS.error} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchSavedRestaurants(true)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
-  if (savedRestaurants.length === 0) {
+  // Different UI display for no restaurants
+  if (savedRestaurants.length === 0 && !loading && !error) {
     return (
-      <SafeAreaView style={styles.emptyContainer}>
-        <Ionicons name="heart-outline" size={80} color={COLORS.text.secondary} />
-        <Text style={styles.emptyTitle}>No saved restaurants yet</Text>
-        <Text style={styles.emptyText}>
-          Swipe right on restaurants you like to save them here
-        </Text>
-        <TouchableOpacity 
-          style={styles.discoverButton} 
-          onPress={() => navigation.navigate('Discover', { user })}
-        >
-          <Text style={styles.discoverButtonText}>Discover Restaurants</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Saved Restaurants</Text>
+          <View style={styles.headerRight} />
+        </View>
+        
+        <View style={styles.emptyContainer}>
+          <Ionicons name="heart-outline" size={80} color={COLORS.inactive} />
+          <Text style={styles.emptyTitle}>No Saved Restaurants</Text>
+          <Text style={styles.emptyText}>
+            You haven't saved any restaurants yet. Swipe through restaurants and save 
+            your favorites to see them here.
+          </Text>
+          
+          <TouchableOpacity 
+            style={styles.discoverButton} 
+            onPress={() => navigation.navigate('Discover', { user })}
+          >
+            <Text style={styles.discoverButtonText}>Discover Restaurants</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Saved Restaurants</Text>
+        <View style={styles.headerRight} />
+      </View>
+      
       <FlatList
         data={savedRestaurants}
-        renderItem={renderRestaurantItem}
         keyExtractor={item => item.restaurantId}
+        renderItem={renderRestaurantItem}
         contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="heart-outline" size={80} color={COLORS.text.secondary} />
+            <Text style={styles.emptyTitle}>No saved restaurants yet</Text>
+            <Text style={styles.emptyText}>
+              Swipe right on restaurants you like to save them here
+            </Text>
+            <TouchableOpacity 
+              style={styles.discoverButton} 
+              onPress={() => navigation.navigate('Discover', { user })}
+            >
+              <Text style={styles.discoverButtonText}>Discover Restaurants</Text>
+            </TouchableOpacity>
+          </View>
+        }
         ListFooterComponent={() => (
           savedRestaurants.length >= 2 ? (
             <TouchableOpacity 
               style={styles.chooseTournamentButton} 
-              onPress={() => navigation.navigate('Tournament', { user, savedRestaurants })}
+              onPress={handleStartTournament}
             >
               <Ionicons name="trophy-outline" size={20} color={COLORS.text.inverse} />
               <Text style={styles.chooseTournamentText}>Choose One Restaurant</Text>
             </TouchableOpacity>
           ) : null
         )}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+          />
+        }
       />
       
       {/* Info card about restaurant history */}
@@ -454,6 +550,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SIZES.padding.md,
+  },
+  backButton: {
+    padding: SIZES.padding.md,
+  },
+  headerTitle: {
+    ...FONTS.h2,
+    color: COLORS.text.primary,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 24,
+    height: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -600,11 +714,6 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.border,
     width: 60,
     minHeight: 80,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   removingButton: {
     backgroundColor: COLORS.background + '80',
@@ -653,5 +762,8 @@ const styles = StyleSheet.create({
     ...FONTS.body,
     color: COLORS.text.secondary,
     fontSize: 13,
+  },
+  refreshing: {
+    backgroundColor: 'transparent',
   },
 });

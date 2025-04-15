@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -27,6 +27,10 @@ export default function TournamentScreen({ navigation, route }) {
   const [totalRounds, setTotalRounds] = useState(0);
   const [winner, setWinner] = useState(null);
   const [isFinished, setIsFinished] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
+  // Ref for cancel token
+  const cancelTokenRef = useRef(null);
   
   // Animation values
   const leftCardAnim = React.useRef(new Animated.Value(0)).current;
@@ -54,12 +58,20 @@ export default function TournamentScreen({ navigation, route }) {
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     }
+    
+    // Cleanup cancel tokens on unmount
+    return () => {
+      if (cancelTokenRef.current) {
+        cancelTokenRef.current.cancel('Component unmounted');
+        cancelTokenRef.current = null;
+      }
+    };
   }, []);
   
   const setupNextPair = (currentTournament) => {
-    if (currentTournament.length <= 1) {
+    if (!currentTournament || currentTournament.length <= 1) {
       // Tournament has ended, we have a winner
-      if (currentTournament.length === 1) {
+      if (currentTournament && currentTournament.length === 1) {
         setWinner(currentTournament[0]);
         setIsFinished(true);
         saveWinnerRestaurant(currentTournament[0]);
@@ -144,7 +156,20 @@ export default function TournamentScreen({ navigation, route }) {
   const saveWinnerRestaurant = async (restaurant) => {
     if (!user || !user._id) return;
     
+    // Prevent multiple save attempts
+    if (saving) return;
+    
     try {
+      setSaving(true);
+      
+      // Cancel any existing requests
+      if (cancelTokenRef.current) {
+        cancelTokenRef.current.cancel('Operation canceled due to new request');
+      }
+      
+      // Create a new cancel token
+      cancelTokenRef.current = axios.CancelToken.source();
+      
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${user._id}/selected-restaurant` 
         : `http://192.168.0.82:5001/api/users/${user._id}/selected-restaurant`;
@@ -157,11 +182,39 @@ export default function TournamentScreen({ navigation, route }) {
         priceRange: restaurant.priceRange,
         rating: restaurant.rating,
         location: restaurant.location
+      }, {
+        cancelToken: cancelTokenRef.current.token
       });
       
       console.log('Selected restaurant saved successfully');
+      
+      // Update the user object in route params
+      if (route.params) {
+        const updatedUser = {
+          ...user,
+          selectedRestaurant: restaurant
+        };
+        
+        // Update current route
+        navigation.setParams({ user: updatedUser });
+        
+        // Try to update parent route as well
+        const profileScreen = navigation.getParent();
+        if (profileScreen && profileScreen.params) {
+          profileScreen.setParams({ user: updatedUser });
+        }
+      }
     } catch (error) {
-      console.error('Error saving selected restaurant:', error);
+      if (!axios.isCancel(error)) {
+        console.error('Error saving selected restaurant:', error);
+        Alert.alert(
+          'Error',
+          'Could not save your selected restaurant. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setSaving(false);
     }
   };
   

@@ -1083,6 +1083,80 @@ app.get('/api/friends/generate-code/:userId', (req, res) => {
   return res.json({ code: newCode.code });
 });
 
+// Endpoint to save a user's selected restaurant (final choice)
+app.post('/api/users/:userId/selected-restaurant', (req, res) => {
+  const { userId } = req.params;
+  const restaurantData = req.body;
+  
+  console.log(`Saving selected restaurant for user ${userId}:`, restaurantData);
+  
+  // Check for required data
+  if (!restaurantData.restaurantId || !restaurantData.restaurantName) {
+    return res.status(400).json({ error: 'Missing required restaurant data' });
+  }
+  
+  // Check if user already has a selected restaurant
+  const existingIndex = selectedRestaurants.findIndex(item => item.userId === userId);
+  
+  if (existingIndex >= 0) {
+    // Update existing selection
+    selectedRestaurants[existingIndex] = {
+      userId,
+      ...restaurantData,
+      updatedAt: new Date().toISOString()
+    };
+    console.log(`Updated existing selection for user ${userId}`);
+  } else {
+    // Add new selection
+    selectedRestaurants.push({
+      userId,
+      ...restaurantData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    console.log(`Added new selection for user ${userId}`);
+  }
+  
+  // Return the saved data
+  const savedData = selectedRestaurants.find(item => item.userId === userId);
+  return res.status(201).json(savedData);
+});
+
+// Endpoint to get a user's selected restaurant
+app.get('/api/users/:userId/selected-restaurant', (req, res) => {
+  const { userId } = req.params;
+  
+  console.log(`Getting selected restaurant for user ${userId}`);
+  
+  // Find the user's selected restaurant
+  const userSelection = selectedRestaurants.find(item => item.userId === userId);
+  
+  if (!userSelection) {
+    console.log(`No selected restaurant found for user ${userId}`);
+    return res.status(404).json({ error: 'No selected restaurant found' });
+  }
+  
+  return res.json(userSelection);
+});
+
+// Endpoint to delete a user's selected restaurant
+app.delete('/api/users/:userId/selected-restaurant', (req, res) => {
+  const { userId } = req.params;
+  
+  console.log(`Deleting selected restaurant for user ${userId}`);
+  
+  // Find and remove the user's selection
+  const initialLength = selectedRestaurants.length;
+  selectedRestaurants = selectedRestaurants.filter(item => item.userId !== userId);
+  
+  if (selectedRestaurants.length === initialLength) {
+    console.log(`No selected restaurant found to delete for user ${userId}`);
+    return res.status(404).json({ error: 'No selected restaurant found' });
+  }
+  
+  return res.json({ success: true, message: 'Selected restaurant deleted successfully' });
+});
+
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

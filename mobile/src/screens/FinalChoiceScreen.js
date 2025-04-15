@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -15,40 +15,104 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function FinalChoiceScreen({ navigation, route }) {
   const { user } = route.params || {};
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Ref for cancel token
+  const cancelTokenRef = useRef(null);
+  // Flag to prevent multiple simultaneous requests
+  const isFetchingRef = useRef(false);
 
+  // Focus effect to refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!user || !user._id) {
+        setError('User information not available');
+        setLoading(false);
+        return;
+      }
+      
+      fetchSelectedRestaurant();
+      
+      return () => {
+        // Cleanup function when screen loses focus
+        if (cancelTokenRef.current) {
+          cancelTokenRef.current.cancel('Screen lost focus');
+          cancelTokenRef.current = null;
+        }
+      };
+    }, [user])
+  );
+  
+  // Initial load and cleanup on unmount
   useEffect(() => {
+    return () => {
+      // Cancel pending requests on unmount
+      if (cancelTokenRef.current) {
+        cancelTokenRef.current.cancel('Component unmounted');
+        cancelTokenRef.current = null;
+      }
+    };
+  }, []);
+  
+  const fetchSelectedRestaurant = async () => {
     if (!user || !user._id) {
       setError('User information not available');
       setLoading(false);
       return;
     }
     
-    fetchSelectedRestaurant();
-  }, []);
-  
-  const fetchSelectedRestaurant = async () => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('Already fetching selected restaurant, skipping');
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    setLoading(true);
+    
+    // Cancel any existing requests
+    if (cancelTokenRef.current) {
+      cancelTokenRef.current.cancel('Operation canceled due to new request');
+    }
+    
+    // Create a new cancel token
+    cancelTokenRef.current = axios.CancelToken.source();
+    
     try {
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${user._id}/selected-restaurant` 
         : `http://192.168.0.82:5001/api/users/${user._id}/selected-restaurant`;
         
-      const response = await axios.get(apiUrl);
+      console.log('Fetching selected restaurant from:', apiUrl);
+      
+      const response = await axios.get(apiUrl, {
+        cancelToken: cancelTokenRef.current.token
+      });
+      
+      console.log('Selected restaurant data:', response.data);
       setSelectedRestaurant(response.data);
+      setError(null);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching selected restaurant:', error);
-      if (error.response && error.response.status === 404) {
-        setError('You have not selected a final restaurant yet');
+      if (!axios.isCancel(error)) {
+        console.error('Error fetching selected restaurant:', error);
+        if (error.response && error.response.status === 404) {
+          setError('You have not selected a final restaurant yet');
+        } else {
+          setError('Could not load your selection');
+        }
+        setLoading(false);
       } else {
-        setError('Could not load your selection');
+        console.log('Request was canceled:', error.message);
       }
-      setLoading(false);
+    } finally {
+      isFetchingRef.current = false;
     }
   };
   
@@ -150,12 +214,18 @@ export default function FinalChoiceScreen({ navigation, route }) {
           <Ionicons name="restaurant-outline" size={80} color={COLORS.inactive} />
           <Text style={styles.errorTitle}>No Selection Found</Text>
           <Text style={styles.errorText}>{error}</Text>
+          
           <TouchableOpacity 
-            style={styles.findRestaurantButton}
+            style={styles.findRestaurantButtonLarge}
             onPress={findNewRestaurant}
           >
-            <Text style={styles.findRestaurantButtonText}>Find a Restaurant</Text>
+            <Ionicons name="trophy" size={24} color={COLORS.text.inverse} />
+            <Text style={styles.findRestaurantButtonLargeText}>Choose a Restaurant</Text>
           </TouchableOpacity>
+          
+          <Text style={styles.errorHelpText}>
+            The tournament will help you choose from your saved restaurants.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -293,15 +363,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SIZES.padding.lg,
   },
-  findRestaurantButton: {
+  findRestaurantButtonLarge: {
+    flexDirection: 'row',
     backgroundColor: COLORS.primary,
     padding: SIZES.padding.md,
+    paddingHorizontal: SIZES.padding.lg,
     borderRadius: SIZES.radius.md,
+    marginTop: SIZES.padding.lg,
+    marginBottom: SIZES.padding.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...SHADOWS.medium,
   },
-  findRestaurantButtonText: {
-    ...FONTS.button,
+  findRestaurantButtonLargeText: {
+    ...FONTS.h3,
     color: COLORS.text.inverse,
+    marginLeft: SIZES.padding.sm,
+  },
+  errorHelpText: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginTop: SIZES.padding.sm,
   },
   scrollContainer: {
     flexGrow: 1,

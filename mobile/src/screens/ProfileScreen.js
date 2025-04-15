@@ -53,6 +53,35 @@ export default function ProfileScreen({ navigation, route }) {
     extrapolate: 'clamp'
   });
 
+  useEffect(() => {
+    if (userData && userData._id && userData._id !== 'guest') {
+      fetchUserFavorites();
+    }
+  }, [userData._id]);
+
+  const fetchUserFavorites = async () => {
+    try {
+      const baseUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001' 
+        : 'http://192.168.0.82:5001';
+      
+      const getLikesUrl = `${baseUrl}/api/users/${userData._id}/likes`;
+      console.log('Fetching user favorites from:', getLikesUrl);
+      
+      const response = await axios.get(getLikesUrl);
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log(`User has ${response.data.length} favorites`);
+        setUserData(prevData => ({
+          ...prevData,
+          favorites: response.data
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user favorites:', error);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -161,7 +190,7 @@ export default function ProfileScreen({ navigation, route }) {
             
             <TouchableOpacity 
               style={styles.menuItem} 
-              onPress={() => navigation.navigate('SavedRestaurants', { user })}
+              onPress={() => navigation.navigate('SavedRestaurants', { user: userData })}
             >
               <View style={[styles.iconContainer, { backgroundColor: '#FFEBF0' }]}>
                 <Ionicons name="heart" size={20} color="#FF4081" />
@@ -172,7 +201,7 @@ export default function ProfileScreen({ navigation, route }) {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => navigation.navigate('FinalChoice', { user })}
+              onPress={() => navigation.navigate('FinalChoice', { user: userData })}
             >
               <View style={[styles.iconContainer, { backgroundColor: '#FFF9C4' }]}>
                 <Ionicons name="restaurant" size={20} color="#FFC107" />
@@ -183,42 +212,85 @@ export default function ProfileScreen({ navigation, route }) {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => {
-                Alert.alert(
-                  'Reset Swiped Restaurants',
-                  'This will clear your swipe history and allow you to see restaurants you\'ve previously swiped left on. Restaurants in your favorites will still be excluded from Discover. Continue?',
-                  [
-                    {
-                      text: 'Cancel',
-                      style: 'cancel'
-                    },
-                    {
-                      text: 'Reset History',
-                      style: 'destructive',
-                      onPress: async () => {
+              onPress={async () => {
+                console.log("BUTTON PRESSED - Reset Favorites");
+                
+                // Check if user has a valid ID first
+                if (!userData || !userData._id) {
+                  console.log("ERROR - Missing user ID");
+                  return;
+                }
+
+                // Check if user is a guest
+                if (userData._id === 'guest') {
+                  console.log("ERROR - Guest user");
+                  return;
+                }
+
+                try {
+                  console.log(`Starting favorites reset for user ${userData._id}`);
+                  
+                  // Get user's favorites using axios which is known to work
+                  const baseUrl = Platform.OS === 'web' 
+                    ? 'http://localhost:5001' 
+                    : 'http://192.168.0.82:5001';
+                  
+                  // Get all favorites
+                  console.log(`Fetching favorites from ${baseUrl}/api/users/${userData._id}/likes`);
+                  const response = await axios.get(`${baseUrl}/api/users/${userData._id}/likes`);
+                  console.log('GET favorites response:', response.data);
+                  
+                  if (response.data && Array.isArray(response.data)) {
+                    const favorites = response.data;
+                    console.log(`Found ${favorites.length} favorites to delete`);
+                    
+                    if (favorites.length === 0) {
+                      console.log("No favorites to delete");
+                      return;
+                    }
+                    
+                    let deletedCount = 0;
+                    
+                    // Delete each favorite one by one (working with the existing API)
+                    for (const favorite of favorites) {
+                      if (favorite.restaurantId) {
                         try {
-                          const apiUrl = Platform.OS === 'web' 
-                            ? `http://localhost:5001/api/users/${userData._id}/swiped` 
-                            : `http://192.168.0.82:5001/api/users/${userData._id}/swiped`;
-                            
-                          const response = await axios.delete(apiUrl);
-                          console.log('Cleared swipe history:', response.data);
+                          const deleteUrl = `${baseUrl}/api/users/${userData._id}/likes/${favorite.restaurantId}`;
+                          console.log(`Deleting favorite: ${favorite.restaurantName} (${favorite.restaurantId})`);
                           
-                          Alert.alert('Success', 'Your swipe history has been cleared. You can now see restaurants you previously swiped left on. Restaurants in your favorites will still be excluded from Discover.');
-                        } catch (error) {
-                          console.error('Error clearing swipe history:', error);
-                          Alert.alert('Error', 'Failed to clear swipe history. Please try again.');
+                          const deleteResponse = await axios.delete(deleteUrl);
+                          console.log("Delete response:", deleteResponse.data);
+                          deletedCount++;
+                        } catch (deleteError) {
+                          console.error(`Failed to delete: ${favorite.restaurantName}`, deleteError);
                         }
                       }
                     }
-                  ]
-                );
+                    
+                    console.log(`Successfully deleted ${deletedCount} favorites`);
+                    
+                    // Update UI
+                    setUserData(prevData => {
+                      console.log("Updating userData state - clearing favorites");
+                      return {
+                        ...prevData,
+                        favorites: []
+                      };
+                    });
+                    
+                    console.log("Favorites reset complete");
+                  } else {
+                    console.error("Invalid response format", response.data);
+                  }
+                } catch (error) {
+                  console.error('Error clearing favorites:', error);
+                }
               }}
             >
               <View style={[styles.iconContainer, { backgroundColor: '#E0F7FA' }]}>
                 <Ionicons name="refresh" size={20} color="#00BCD4" />
               </View>
-              <Text style={styles.menuText}>Reset Swiped Restaurants</Text>
+              <Text style={styles.menuText}>Reset Favorite Restaurants</Text>
               <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
             </TouchableOpacity>
             

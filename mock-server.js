@@ -1008,6 +1008,42 @@ app.delete('/api/users/:userId/likes/:restaurantId', (req, res) => {
   });
 });
 
+// Remove all restaurants from likes for a user (bulk delete)
+app.delete('/api/users/:userId/likes', (req, res) => {
+  const { userId } = req.params;
+  
+  console.log(`DELETE request received - Removing ALL likes for user ${userId}`);
+  console.log(`Current likes count before bulk deletion: ${likes.length}`);
+  
+  // Count likes for this user before deletion
+  const userLikesCount = likes.filter(like => like.userId === userId).length;
+  console.log(`User ${userId} has ${userLikesCount} likes before deletion`);
+  
+  if (userLikesCount === 0) {
+    return res.json({ 
+      success: true, 
+      message: 'No favorites to clear',
+      count: 0
+    });
+  }
+  
+  // Remove all likes for this user
+  const newLikes = likes.filter(like => like.userId !== userId);
+  const removedCount = likes.length - newLikes.length;
+  
+  // Update the likes array
+  likes = newLikes;
+  
+  console.log(`Removed ${removedCount} likes for user ${userId}`);
+  console.log(`New total likes count: ${likes.length}`);
+  
+  return res.json({ 
+    success: true, 
+    message: `All favorites cleared (${removedCount} items)`,
+    count: removedCount
+  });
+});
+
 // API для работы с инвайт-кодами и статусами пользователей
 
 // Генерация инвайт-кода

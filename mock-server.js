@@ -94,6 +94,19 @@ app.post('/api/users/login', (req, res) => {
   return res.json(user);
 });
 
+// Add logout endpoint
+app.post('/api/users/logout', (req, res) => {
+  const { userId } = req.body;
+  
+  // Update user status to offline if userId is provided
+  if (userId && userStatuses[userId]) {
+    userStatuses[userId].isOnline = false;
+    console.log(`User ${userId} logged out and set to offline`);
+  }
+  
+  return res.json({ success: true, message: 'Logged out successfully' });
+});
+
 // Получение списка ресторанов с Google Places API
 app.get('/api/restaurants', async (req, res) => {
   try {

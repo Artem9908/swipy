@@ -83,19 +83,52 @@ export default function ProfileScreen({ navigation, route }) {
   };
 
   const handleLogout = () => {
+    console.log("handleLogout function called");
+    
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
       [
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
+          onPress: () => console.log('Logout cancelled')
         },
         {
           text: 'Logout',
-          onPress: () => navigation.navigate('Login')
+          onPress: async () => {
+            console.log('Logout confirmed');
+            try {
+              // Call logout API if user has a valid ID
+              if (userData && userData._id && userData._id !== 'guest') {
+                const baseUrl = Platform.OS === 'web' 
+                  ? 'http://localhost:5001' 
+                  : 'http://192.168.0.82:5001';
+                
+                console.log(`Calling logout API at ${baseUrl}/api/users/logout`);
+                await axios.post(`${baseUrl}/api/users/logout`, { userId: userData._id });
+                console.log('Logout API called successfully');
+              }
+              
+              // Reset the navigation stack to the Login screen
+              console.log('Resetting navigation to Login screen');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+              // Still navigate to login even if API call fails
+              console.log('Error during logout, still navigating to Login');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            }
+          }
         }
-      ]
+      ],
+      { cancelable: false }
     );
   };
 
@@ -106,6 +139,37 @@ export default function ProfileScreen({ navigation, route }) {
 
   const goToFriends = () => {
     navigation.navigate('Friends', { user: userData });
+  };
+
+  const directLogout = async () => {
+    console.log("Direct logout function called");
+    try {
+      // Call logout API if user has a valid ID
+      if (userData && userData._id && userData._id !== 'guest') {
+        const baseUrl = Platform.OS === 'web' 
+          ? 'http://localhost:5001' 
+          : 'http://192.168.0.82:5001';
+        
+        console.log(`Calling logout API at ${baseUrl}/api/users/logout`);
+        await axios.post(`${baseUrl}/api/users/logout`, { userId: userData._id });
+        console.log('Logout API called successfully');
+      }
+      
+      // Reset the navigation stack to the Login screen
+      console.log('Resetting navigation to Login screen');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still navigate to login even if API call fails
+      console.log('Error during logout, still navigating to Login');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    }
   };
 
   return (
@@ -323,8 +387,9 @@ export default function ProfileScreen({ navigation, route }) {
           
           {/* Кнопка выхода */}
           <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={handleLogout}
+            style={styles.logoutButton}
+            activeOpacity={0.6} 
+            onPress={directLogout}
           >
             <Ionicons name="log-out-outline" size={20} color={COLORS.error} style={styles.logoutIcon} />
             <Text style={styles.logoutText}>Logout</Text>

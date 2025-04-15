@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -22,22 +22,43 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [removingId, setRemovingId] = useState(null); // Track which restaurant is being removed
+  
+  // Refs for controlling the fetch process
+  const isFetchingRef = useRef(false);
+  const cancelTokenRef = useRef(null);
+  const initialLoadCompleteRef = useRef(false);
 
-  // Focus effect to refresh data when screen comes into focus
+  // Focus effect to refresh data when screen comes into focus, but only after initial load
   useFocusEffect(
     useCallback(() => {
-      console.log('SavedRestaurantsScreen focused - refreshing data');
-      fetchSavedRestaurants();
+      console.log('SavedRestaurantsScreen focused - refreshing data if needed');
+      
+      // Only refresh if not in initial loading and not currently fetching
+      if (initialLoadCompleteRef.current && !isFetchingRef.current) {
+        fetchSavedRestaurants(false); // Don't show loading indicator for refresh
+      }
       
       return () => {
         // Cleanup function when screen loses focus
+        if (cancelTokenRef.current) {
+          cancelTokenRef.current.cancel('Screen lost focus');
+          cancelTokenRef.current = null;
+        }
       };
     }, [user])
   );
 
   // Initial load
   useEffect(() => {
-    fetchSavedRestaurants();
+    fetchSavedRestaurants(true); // Show loading indicator for initial load
+    
+    return () => {
+      // Cancel pending requests on unmount
+      if (cancelTokenRef.current) {
+        cancelTokenRef.current.cancel('Component unmounted');
+        cancelTokenRef.current = null;
+      }
+    };
   }, []);
   
   // Check if we should automatically start a tournament
@@ -62,7 +83,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
     });
   };
 
-  const fetchSavedRestaurants = async () => {
+  const fetchSavedRestaurants = async (showLoadingIndicator = true) => {
     if (!user || !user._id) {
       console.log('User information is missing:', user);
       setError('User information is missing');
@@ -70,9 +91,26 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       return;
     }
     
-    try {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('Already fetching saved restaurants, skipping');
+      return;
+    }
+    
+    // Cancel any existing requests
+    if (cancelTokenRef.current) {
+      cancelTokenRef.current.cancel('Operation canceled due to new request');
+    }
+    
+    // Create a new cancel token
+    cancelTokenRef.current = axios.CancelToken.source();
+    
+    isFetchingRef.current = true;
+    if (showLoadingIndicator) {
       setLoading(true);
-      
+    }
+    
+    try {
       // Use localhost for web or IP for devices
       const baseUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001' 
@@ -82,7 +120,9 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
         
       console.log('Fetching saved restaurants from:', apiUrl);
       
-      const res = await axios.get(apiUrl);
+      const res = await axios.get(apiUrl, {
+        cancelToken: cancelTokenRef.current.token
+      });
       console.log('Response status:', res.status);
       
       if (!res.data) {
@@ -115,16 +155,26 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       
       console.log(`Successfully loaded ${sortedRestaurants.length} saved restaurants`);
       
+      // Mark initial load as complete
+      initialLoadCompleteRef.current = true;
+      
       setSavedRestaurants(sortedRestaurants);
       
       // Update user object in route params to propagate favorites count back to profile
       if (route.params) {
-        navigation.setParams({
-          user: {
-            ...user,
-            favorites: sortedRestaurants
-          }
-        });
+        const updatedUser = {
+          ...user,
+          favorites: sortedRestaurants
+        };
+        
+        // Update current route
+        navigation.setParams({ user: updatedUser });
+        
+        // Try to update parent route as well
+        const profileScreen = navigation.getParent();
+        if (profileScreen && profileScreen.params) {
+          profileScreen.setParams({ user: updatedUser });
+        }
       }
       
       setLoading(false);
@@ -132,10 +182,16 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       
       return sortedRestaurants;
     } catch (e) {
-      console.error('Error fetching saved restaurants:', e);
-      setError('Failed to load saved restaurants');
-      setLoading(false);
+      if (!axios.isCancel(e)) {
+        console.error('Error fetching saved restaurants:', e);
+        setError('Failed to load saved restaurants');
+        setLoading(false);
+      } else {
+        console.log('Fetch saved restaurants request was canceled:', e.message);
+      }
       return [];
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
@@ -192,55 +248,60 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
       const apiUrl = `${baseUrl}/api/users/${user._id}/likes/${restaurantId}`;
       console.log('DELETE request URL:', apiUrl);
       
-      // Optimistic UI update - remove immediately
+      // Get updated list before removing from UI (to avoid flicker)
       const updatedRestaurants = savedRestaurants.filter(r => r.restaurantId !== restaurantId);
+      
+      // Optimistic UI update - remove immediately
       setSavedRestaurants(updatedRestaurants);
       
-      // Update user object in route params for propagation
+      // Update user object in route params for propagation - more efficient state handling
       if (route.params) {
-        navigation.setParams({
-          user: {
-            ...user,
-            favorites: updatedRestaurants
-          }
-        });
+        const updatedUser = {
+          ...user,
+          favorites: updatedRestaurants
+        };
+        
+        // Update current route
+        navigation.setParams({ user: updatedUser });
+        
+        // Try to update parent route as well (if we came from profile)
+        const profileScreen = navigation.getParent();
+        if (profileScreen && profileScreen.params) {
+          profileScreen.setParams({ user: updatedUser });
+        }
       }
       
-      // Use XMLHttpRequest instead of axios
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('DELETE', apiUrl, true);
-        
-        xhr.onload = function() {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            console.log('DELETE success, response:', xhr.responseText);
-            resolve(xhr.responseText);
-          } else {
-            console.error('DELETE failed, status:', xhr.status, 'response:', xhr.responseText);
-            reject(new Error(`DELETE failed with status ${xhr.status}`));
-          }
-        };
-        
-        xhr.onerror = function() {
-          console.error('Network error during DELETE request');
-          reject(new Error('Network error'));
-        };
-        
-        xhr.send();
+      // Cancel any existing requests
+      if (cancelTokenRef.current) {
+        cancelTokenRef.current.cancel('Operation canceled due to new request');
+      }
+      
+      // Create a new cancel token
+      cancelTokenRef.current = axios.CancelToken.source();
+      
+      // Use axios instead of XMLHttpRequest for consistency and cancellation support
+      await axios.delete(apiUrl, {
+        cancelToken: cancelTokenRef.current.token
       });
       
+      console.log('DELETE success');
+      
     } catch (error) {
-      console.error('Error removing restaurant:', error);
-      
-      // Revert the optimistic update on failure
-      fetchSavedRestaurants();
-      
-      // Show error to user
-      Alert.alert(
-        'Error',
-        'Failed to remove restaurant. Please try again.',
-        [{ text: 'OK' }]
-      );
+      if (!axios.isCancel(error)) {
+        console.error('Error removing restaurant:', error);
+        
+        // Revert the optimistic update on failure
+        fetchSavedRestaurants(false);
+        
+        // Show error to user
+        Alert.alert(
+          'Error',
+          'Failed to remove restaurant. Please try again.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('Delete request was canceled:', error.message);
+      }
     } finally {
       setRemovingId(null); // Clear the removing state
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -29,6 +29,26 @@ export default function ProfileScreen({ navigation, route }) {
     reviews: []
   });
 
+  // Refs to track previous counts and avoid unnecessary updates
+  const prevFavoritesCount = useRef(userData.favorites?.length || 0);
+  const prevFriendsCount = useRef(userData.friends?.length || 0);
+  
+  // Refs to track if fetch operations are in progress
+  const isFetchingFavorites = useRef(false);
+  const isFetchingFriends = useRef(false);
+  
+  // Ref for the refresh interval
+  const refreshIntervalRef = useRef(null);
+  
+  // Ref for axios cancel tokens
+  const cancelTokenRef = useRef(null);
+  
+  // Ref to track last update time to prevent too frequent updates
+  const lastUpdateTimeRef = useRef({
+    favorites: 0,
+    friends: 0
+  });
+
   const scrollY = new Animated.Value(0);
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 100],
@@ -54,95 +74,166 @@ export default function ProfileScreen({ navigation, route }) {
     extrapolate: 'clamp'
   });
 
-  // Add refresh interval reference
-  const [refreshInterval, setRefreshInterval] = useState(null);
-
   // Use focus effect to fetch data whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
       console.log('ProfileScreen focused - refreshing data');
       if (userData && userData._id && userData._id !== 'guest') {
-        fetchUserFavorites();
-        fetchUserFriends();
+        // Fetch initial data - wait for existing operations to complete
+        setTimeout(() => {
+          fetchUserData();
+        }, 100);
         
-        // Set up refresh interval for real-time updates
-        const interval = setInterval(() => {
-          console.log('Periodic refresh - updating friends and favorites');
-          fetchUserFavorites();
-          fetchUserFriends();
-        }, 100); // Refresh every 0.1 seconds
-        
-        setRefreshInterval(interval);
+        // Set up background refresh that doesn't block UI, using a more reasonable interval
+        refreshIntervalRef.current = setInterval(() => {
+          fetchUserData();
+        }, 3000); // Check every 3 seconds instead of every second
       }
       
       // Cleanup function to clear interval when screen loses focus
       return () => {
         console.log('ProfileScreen lost focus - cleaning up interval');
-        if (refreshInterval) {
-          clearInterval(refreshInterval);
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current);
+          refreshIntervalRef.current = null;
+        }
+        
+        // Cancel any pending requests
+        if (cancelTokenRef.current) {
+          cancelTokenRef.current.cancel('Component unmounted');
+          cancelTokenRef.current = null;
         }
       };
     }, [userData._id])
   );
 
-  // Keep the regular useEffect for initial load
+  // Clean up on component unmount
   useEffect(() => {
-    if (userData && userData._id && userData._id !== 'guest') {
-      fetchUserFavorites();
-      fetchUserFriends();
-    }
-    
-    // Clean up interval on component unmount
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+      
+      // Cancel any pending requests
+      if (cancelTokenRef.current) {
+        cancelTokenRef.current.cancel('Component unmounted');
+        cancelTokenRef.current = null;
       }
     };
-  }, [userData._id]);
+  }, []);
+
+  // Combined function to fetch all user data efficiently
+  const fetchUserData = async () => {
+    fetchUserFavorites();
+    fetchUserFriends();
+  };
 
   const fetchUserFavorites = async () => {
+    // Skip if already fetching to prevent parallel calls
+    if (isFetchingFavorites.current) return;
+    
+    // Rate limiting - only allow updates every 3 seconds at minimum
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current.favorites < 3000) {
+      console.log('Skipping favorites update due to rate limiting');
+      return;
+    }
+    
+    // Cancel any existing requests
+    if (cancelTokenRef.current) {
+      cancelTokenRef.current.cancel('Operation canceled due to new request');
+    }
+    
+    // Create a new cancel token
+    cancelTokenRef.current = axios.CancelToken.source();
+    
+    isFetchingFavorites.current = true;
+    lastUpdateTimeRef.current.favorites = now;
+    
     try {
       const baseUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001' 
         : 'http://192.168.0.82:5001';
       
       const getLikesUrl = `${baseUrl}/api/users/${userData._id}/likes`;
-      console.log('Fetching user favorites from:', getLikesUrl);
       
-      const response = await axios.get(getLikesUrl);
+      const response = await axios.get(getLikesUrl, {
+        cancelToken: cancelTokenRef.current.token
+      });
       
       if (response.data && Array.isArray(response.data)) {
-        console.log(`User has ${response.data.length} favorites`);
-        setUserData(prevData => ({
-          ...prevData,
-          favorites: response.data
-        }));
+        // Only update if count has changed to avoid unnecessary renders
+        if (response.data.length !== prevFavoritesCount.current) {
+          console.log(`Favorites count changed: ${prevFavoritesCount.current} -> ${response.data.length}`);
+          prevFavoritesCount.current = response.data.length;
+          
+          setUserData(prevData => ({
+            ...prevData,
+            favorites: response.data
+          }));
+        }
       }
     } catch (error) {
-      console.error('Error fetching user favorites:', error);
+      if (!axios.isCancel(error)) {
+        console.error('Error fetching user favorites:', error);
+      }
+    } finally {
+      isFetchingFavorites.current = false;
     }
   };
 
   const fetchUserFriends = async () => {
+    // Skip if already fetching to prevent parallel calls
+    if (isFetchingFriends.current) return;
+    
+    // Rate limiting - only allow updates every 3 seconds at minimum
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current.friends < 3000) {
+      console.log('Skipping friends update due to rate limiting');
+      return;
+    }
+    
+    // Cancel any existing requests
+    if (cancelTokenRef.current) {
+      cancelTokenRef.current.cancel('Operation canceled due to new request');
+    }
+    
+    // Create a new cancel token
+    cancelTokenRef.current = axios.CancelToken.source();
+    
+    isFetchingFriends.current = true;
+    lastUpdateTimeRef.current.friends = now;
+    
     try {
       const baseUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001' 
         : 'http://192.168.0.82:5001';
       
       const getFriendsUrl = `${baseUrl}/api/users/${userData._id}/friends`;
-      console.log('Fetching user friends from:', getFriendsUrl);
       
-      const response = await axios.get(getFriendsUrl);
+      const response = await axios.get(getFriendsUrl, {
+        cancelToken: cancelTokenRef.current.token
+      });
       
       if (response.data && Array.isArray(response.data)) {
-        console.log(`User has ${response.data.length} friends`);
-        setUserData(prevData => ({
-          ...prevData,
-          friends: response.data
-        }));
+        // Only update if count has changed to avoid unnecessary renders
+        if (response.data.length !== prevFriendsCount.current) {
+          console.log(`Friends count changed: ${prevFriendsCount.current} -> ${response.data.length}`);
+          prevFriendsCount.current = response.data.length;
+          
+          setUserData(prevData => ({
+            ...prevData,
+            friends: response.data
+          }));
+        }
       }
     } catch (error) {
-      console.error('Error fetching user friends:', error);
+      if (!axios.isCancel(error)) {
+        console.error('Error fetching user friends:', error);
+      }
+    } finally {
+      isFetchingFriends.current = false;
     }
   };
 

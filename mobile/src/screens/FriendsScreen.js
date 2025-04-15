@@ -171,13 +171,20 @@ export default function FriendsScreen({ navigation, route }) {
       const updatedFriends = await fetchFriends();
       
       // Update user object in route params to propagate changes to profile screen
+      // Instead of updating the entire user object, just set the friends directly to minimize rerenders
       if (route.params && updatedFriends) {
-        navigation.setParams({
-          user: {
-            ...user,
-            friends: updatedFriends
-          }
-        });
+        const updatedUser = {
+          ...user,
+          friends: updatedFriends
+        };
+        // This will update the profile screen more efficiently
+        navigation.setParams({ user: updatedUser });
+        
+        // Also update the parent route params if we came from a ProfileScreen
+        const profileScreen = navigation.getParent();
+        if (profileScreen && profileScreen.params) {
+          profileScreen.setParams({ user: updatedUser });
+        }
       }
       
       Alert.alert('Success', 'Friend added successfully!');
@@ -211,13 +218,20 @@ export default function FriendsScreen({ navigation, route }) {
               const updatedFriends = await fetchFriends();
               
               // Update user object in route params to propagate changes to profile screen
+              // Instead of updating the entire user object, just set the friends directly to minimize rerenders
               if (route.params && updatedFriends) {
-                navigation.setParams({
-                  user: {
-                    ...user,
-                    friends: updatedFriends
-                  }
-                });
+                const updatedUser = {
+                  ...user,
+                  friends: updatedFriends
+                };
+                // This will update the profile screen more efficiently
+                navigation.setParams({ user: updatedUser });
+                
+                // Also update the parent route params if we came from a ProfileScreen
+                const profileScreen = navigation.getParent();
+                if (profileScreen && profileScreen.params) {
+                  profileScreen.setParams({ user: updatedUser });
+                }
               }
             } catch (e) {
               console.error('Error removing friend:', e);

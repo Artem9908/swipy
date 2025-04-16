@@ -788,7 +788,8 @@ export default function ChatScreen({ route, navigation }) {
                         </TouchableOpacity>
                       )}
                     </View>
-                    <FlatList 
+                    
+                    <FlatList
                       horizontal
                       data={friendMatches.slice(0, 3)} // Show only first 3 matches
                       keyExtractor={(item) => item.restaurantId}

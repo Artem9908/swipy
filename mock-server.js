@@ -58,6 +58,77 @@ let messages = [
 ];
 let reservations = [];
 let likes = [];
+
+// Добавляем тестовые лайки ресторанов для создания совпадений
+likes = [
+  {
+    userId: '1',
+    restaurantId: 'restaurant-1',
+    restaurantName: 'Italiano Delizioso',
+    image: 'https://source.unsplash.com/1600x900/?italian,restaurant',
+    cuisine: 'Italian',
+    priceRange: '$$',
+    rating: 4.5,
+    location: 'New York',
+    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    userId: '2',
+    restaurantId: 'restaurant-1',
+    restaurantName: 'Italiano Delizioso',
+    image: 'https://source.unsplash.com/1600x900/?italian,restaurant',
+    cuisine: 'Italian',
+    priceRange: '$$',
+    rating: 4.5,
+    location: 'New York',
+    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    userId: '1',
+    restaurantId: 'restaurant-2',
+    restaurantName: 'Sushi Delight',
+    image: 'https://source.unsplash.com/1600x900/?sushi,restaurant',
+    cuisine: 'Japanese',
+    priceRange: '$$$',
+    rating: 4.7,
+    location: 'New York',
+    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    userId: '2',
+    restaurantId: 'restaurant-2',
+    restaurantName: 'Sushi Delight',
+    image: 'https://source.unsplash.com/1600x900/?sushi,restaurant',
+    cuisine: 'Japanese',
+    priceRange: '$$$',
+    rating: 4.7,
+    location: 'New York',
+    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    userId: '1',
+    restaurantId: 'restaurant-3',
+    restaurantName: 'Taco Heaven',
+    image: 'https://source.unsplash.com/1600x900/?taco,restaurant',
+    cuisine: 'Mexican',
+    priceRange: '$',
+    rating: 4.3,
+    location: 'New York',
+    timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    userId: '2',
+    restaurantId: 'restaurant-3',
+    restaurantName: 'Taco Heaven',
+    image: 'https://source.unsplash.com/1600x900/?taco,restaurant',
+    cuisine: 'Mexican',
+    priceRange: '$',
+    rating: 4.3,
+    location: 'New York',
+    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+  }
+];
+
 let friends = [
   { userId: '1', friendId: '2' },
   { userId: '2', friendId: '1' }
@@ -642,6 +713,54 @@ app.get('/api/matches/:userId/:restaurantId', (req, res) => {
   const matchedFriends = [...new Set(friendLikes.map(like => like.userId))];
   
   return res.json({ matches: matchedFriends });
+});
+
+// Получение совпадений ресторанов с друзьями
+app.get('/api/users/:userId/matches', (req, res) => {
+  const { userId } = req.params;
+
+  console.log(`Getting restaurant matches for user ${userId}`);
+  
+  // Получаем друзей пользователя
+  const userFriends = friends
+    .filter(f => f.userId === userId)
+    .map(f => f.friendId);
+    
+  console.log(`User has ${userFriends.length} friends`);
+  
+  // Получаем лайки пользователя
+  const userLikes = likes.filter(like => like.userId === userId);
+  console.log(`User has ${userLikes.length} likes`);
+  
+  if (userLikes.length === 0 || userFriends.length === 0) {
+    return res.json([]);
+  }
+  
+  // Массив для хранения совпадений
+  const matches = [];
+  
+  // Для каждого ресторана, который лайкнул пользователь
+  userLikes.forEach(userLike => {
+    // Ищем друзей, которые тоже лайкнули этот ресторан
+    userFriends.forEach(friendId => {
+      const friendLike = likes.find(like => 
+        like.userId === friendId && like.restaurantId === userLike.restaurantId
+      );
+      
+      if (friendLike) {
+        // Нашли совпадение - друг лайкнул тот же ресторан
+        matches.push({
+          friendId,
+          restaurantId: userLike.restaurantId,
+          restaurantName: userLike.restaurantName || friendLike.restaurantName,
+          restaurantImage: userLike.image || friendLike.image
+        });
+      }
+    });
+  });
+  
+  console.log(`Found ${matches.length} restaurant matches for user ${userId}`);
+  return res.json(matches);
 });
 
 app.get('/api/friends/:userId', (req, res) => {

@@ -431,6 +431,17 @@ export default function ProfileScreen({ navigation, route }) {
             
             <TouchableOpacity 
               style={styles.menuItem}
+              onPress={() => navigation.navigate('TournamentWinners', { user: userData })}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: '#E6F2FF' }]}>
+                <Ionicons name="trophy" size={20} color="#4285F4" />
+              </View>
+              <Text style={styles.menuText}>Tournament Winners</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.light} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
               onPress={async () => {
                 console.log("BUTTON PRESSED - Reset Favorites");
                 

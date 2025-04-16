@@ -22,6 +22,7 @@ import SavedRestaurantsScreen from '../screens/SavedRestaurantsScreen';
 import TournamentScreen from '../screens/TournamentScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import FinalChoiceScreen from '../screens/FinalChoiceScreen';
+import TournamentWinnersScreen from '../screens/TournamentWinnersScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -217,6 +218,11 @@ export default function AppNavigator() {
         <Stack.Screen 
           name="FinalChoice" 
           component={FinalChoiceScreen} 
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="TournamentWinners" 
+          component={TournamentWinnersScreen} 
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

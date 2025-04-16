@@ -181,6 +181,7 @@ export default function TournamentScreen({ navigation, route }) {
       // Create a new cancel token
       cancelTokenRef.current = axios.CancelToken.source();
       
+      // Сохраняем ресторан как выбранный (финальный выбор)
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${user._id}/selected-restaurant` 
         : `http://192.168.0.82:5001/api/users/${user._id}/selected-restaurant`;
@@ -198,6 +199,25 @@ export default function TournamentScreen({ navigation, route }) {
       });
       
       console.log('Selected restaurant saved successfully');
+      
+      // Также сохраняем ресторан в коллекцию победителей турнира
+      const tournamentWinnersUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/users/${user._id}/tournament-winners` 
+        : `http://192.168.0.82:5001/api/users/${user._id}/tournament-winners`;
+        
+      await axios.post(tournamentWinnersUrl, {
+        restaurantId: restaurant.restaurantId,
+        restaurantName: restaurant.restaurantName,
+        image: restaurant.image,
+        cuisine: restaurant.cuisine,
+        priceRange: restaurant.priceRange,
+        rating: restaurant.rating,
+        location: restaurant.location
+      }, {
+        cancelToken: cancelTokenRef.current.token
+      });
+      
+      console.log('Restaurant saved to tournament winners collection');
       
       // Update the user object in route params
       if (route.params) {

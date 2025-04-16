@@ -304,11 +304,19 @@ export default function FinalChoiceScreen({ navigation, route }) {
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={styles.newSelectionButton} 
+            style={styles.newSelectionButton}
             onPress={findNewRestaurant}
           >
-            <Ionicons name="refresh-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.newSelectionButtonText}>Make a New Selection</Text>
+            <Ionicons name="refresh" size={20} color={COLORS.primary} />
+            <Text style={styles.newSelectionButtonText}>Find Another Restaurant</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.newSelectionButton, { marginTop: SIZES.padding.md }]}
+            onPress={() => navigation.navigate('TournamentWinners', { user })}
+          >
+            <Ionicons name="trophy" size={20} color="#4285F4" />
+            <Text style={[styles.newSelectionButtonText, { color: '#4285F4' }]}>View All Tournament Winners</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

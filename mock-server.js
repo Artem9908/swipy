@@ -144,6 +144,9 @@ let userStatuses = {
 // Array to store users' selected restaurants (final choices)
 let selectedRestaurants = [];
 
+// Array to store tournament winners for each user
+let tournamentWinners = [];
+
 // Array to store users' swipe history
 let swipeHistory = [];
 
@@ -1274,6 +1277,43 @@ app.delete('/api/users/:userId/selected-restaurant', (req, res) => {
   }
   
   return res.json({ success: true, message: 'Selected restaurant deleted successfully' });
+});
+
+// Endpoint to get tournament winners for a user
+app.get('/api/users/:userId/tournament-winners', (req, res) => {
+  const { userId } = req.params;
+  
+  console.log(`Getting tournament winners for user ${userId}`);
+  
+  // Find the user's tournament winners
+  const userWinners = tournamentWinners.filter(item => item.userId === userId);
+  
+  return res.json(userWinners);
+});
+
+// Endpoint to add a tournament winner
+app.post('/api/users/:userId/tournament-winners', (req, res) => {
+  const { userId } = req.params;
+  const restaurantData = req.body;
+  
+  console.log(`Adding tournament winner for user ${userId}:`, restaurantData);
+  
+  // Check for required data
+  if (!restaurantData.restaurantId || !restaurantData.restaurantName) {
+    return res.status(400).json({ error: 'Missing required restaurant data' });
+  }
+  
+  // Add new tournament winner
+  const newWinner = {
+    userId,
+    ...restaurantData,
+    createdAt: new Date().toISOString()
+  };
+  
+  tournamentWinners.push(newWinner);
+  console.log(`Added new tournament winner for user ${userId}`);
+  
+  return res.status(201).json(newWinner);
 });
 
 const PORT = process.env.PORT || 5001;

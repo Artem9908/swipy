@@ -6,6 +6,7 @@ const usersRoutes = require('./routes/users');
 const restaurantsRoutes = require('./routes/restaurants');
 const reservationsRoutes = require('./routes/reservations');
 const chatRoutes = require('./routes/chat');
+const notificationsRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 app.use(cors());
@@ -15,6 +16,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/restaurants', restaurantsRoutes);
 app.use('/api/reservations', reservationsRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

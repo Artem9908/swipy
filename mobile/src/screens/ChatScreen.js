@@ -17,6 +17,7 @@ import {
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function ChatScreen({ route, navigation }) {
   const { user, friend, shareData } = route.params || {};
@@ -31,10 +32,13 @@ export default function ChatScreen({ route, navigation }) {
   const [activeRestaurant, setActiveRestaurant] = useState(null);
   const [suggestingDateTime, setSuggestingDateTime] = useState(false);
   const [suggestedDate, setSuggestedDate] = useState(new Date());
+  const [previousMessageCounts, setPreviousMessageCounts] = useState({});
   const flatListRef = useRef(null);
+  const { showNotification } = useNotifications();
 
   useEffect(() => {
     console.log('Chat screen mounted, user:', user);
+    console.log('Route params:', route.params);
     
     // Set active restaurant if this is a restaurant match chat
     if (shareData && (shareData.type === 'restaurant_match' || shareData.type === 'restaurant')) {
@@ -69,6 +73,11 @@ export default function ChatScreen({ route, navigation }) {
           .catch(err => console.error('Error refreshing on focus:', err));
       }
     });
+
+    // Добавляем обработчик потери фокуса
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      console.log('Chat screen lost focus');
+    });
     
     // Сначала загружаем друзей, затем чаты
     const loadInitialData = async () => {
@@ -95,6 +104,20 @@ export default function ChatScreen({ route, navigation }) {
             console.log('Friend not found in the list, friendId:', shareData.friendId);
             setError('Could not find the selected friend');
           }
+        } 
+        // Если friendId передан напрямую (например, из уведомления)
+        else if (route.params && route.params.friendId) {
+          console.log('FriendId detected in route params:', route.params.friendId);
+          // Находим друга в загруженном списке
+          const friendToSelect = friendsList.find(f => f._id === route.params.friendId);
+          if (friendToSelect) {
+            console.log('Friend found, setting as selected:', friendToSelect.name || friendToSelect.username);
+            setSelectedFriend(friendToSelect);
+          } else {
+            console.log('Friend not found in the list, getting details');
+            // Пытаемся получить данные о друге
+            await fetchFriendDetails(route.params.friendId);
+          }
         } else {
           await fetchMessages();
         }
@@ -114,6 +137,7 @@ export default function ChatScreen({ route, navigation }) {
     return () => {
       isMounted = false;
       unsubscribeFocus();
+      unsubscribeBlur();
     };
   }, [navigation]);
 
@@ -332,6 +356,63 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
+  // Функция для создания и сохранения уведомления
+  const createMessageNotification = (message, friend) => {
+    if (!user || !user._id || !friend) return;
+    
+    console.log('Creating notification for message:', message);
+    console.log('From friend:', friend);
+    
+    // Создаем уведомление
+    const notification = {
+      id: Date.now().toString(),
+      type: 'message',
+      message: `Новое сообщение от ${friend.name || friend.username}`,
+      createdAt: new Date().toISOString(),
+      read: false,
+      data: {
+        friendId: friend._id,
+        messageId: message._id || message.id
+      }
+    };
+    
+    // Показываем уведомление только если экран чата не активен
+    if (!navigation.isFocused()) {
+      console.log('Chat screen not focused, showing notification');
+      showNotification(notification);
+      
+      // Сохраняем на сервере
+      saveNotification(notification);
+    } else {
+      console.log('Chat screen is focused, not showing notification');
+    }
+  };
+  
+  // Сохранение уведомления на сервере
+  const saveNotification = async (notification) => {
+    try {
+      const apiUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001/api/notifications' 
+        : 'http://192.168.0.82:5001/api/notifications';
+      
+      const requestData = {
+        userId: user._id,
+        type: notification.type,
+        message: notification.message,
+        data: notification.data,
+        relatedUserId: notification.data.friendId
+      };
+      
+      console.log('Saving notification to server:', requestData);
+      
+      const response = await axios.post(apiUrl, requestData);
+      console.log('Notification saved, server response:', response.data);
+    } catch (error) {
+      console.error('Error saving notification:', error);
+    }
+  };
+
+  // Заменяем функцию fetchMessages
   const fetchMessages = async (showLoading = true) => {
     if (!user || !user._id) {
       console.log('No user data in fetchMessages');
@@ -341,111 +422,81 @@ export default function ChatScreen({ route, navigation }) {
     
     if (showLoading) setLoading(true);
     
-    // Добавляем защиту от длительной загрузки
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), 10000)
-    );
-    
     try {
       if (selectedFriend) {
-        // Получаем сообщения для конкретного диалога
+        // Запрашиваем сообщения для выбранного диалога
         const apiUrl = Platform.OS === 'web' 
           ? `http://localhost:5001/api/chat/${user._id}/${selectedFriend._id}` 
           : `http://192.168.0.82:5001/api/chat/${user._id}/${selectedFriend._id}`;
+        
+        console.log(`Fetching messages for chat with: ${selectedFriend.username || selectedFriend._id}`);
+        
+        const response = await axios.get(apiUrl);
+        
+        // Проверка на новые сообщения и отправка уведомлений
+        const currentCount = response.data.length;
+        const previousCount = previousMessageCounts[selectedFriend._id] || 0;
+        
+        // Если есть новые сообщения и это не первая загрузка чата
+        if (currentCount > previousCount && previousCount > 0) {
+          console.log(`Found new messages: previous=${previousCount}, current=${currentCount}`);
           
-        console.log(`Fetching messages for chat with: ${selectedFriend.username}`);
-        
-        // Используем Promise.race для таймаута запроса
-        const res = await Promise.race([
-          axios.get(apiUrl),
-          timeoutPromise
-        ]);
-        
-        console.log('Fetched messages:', res.data);
-        
-        // Проверяем, что ответ является массивом
-        if (!Array.isArray(res.data)) {
-          console.error('Invalid messages data format, expected array');
-          setError('Invalid messages data format');
-          setLoading(false);
-          return;
-        }
-        
-        setMessages(res.data);
-      } else {
-        // Получаем список собеседников с последними сообщениями
-        const apiUrl = Platform.OS === 'web' 
-          ? `http://localhost:5001/api/chat/${user._id}` 
-          : `http://192.168.0.82:5001/api/chat/${user._id}`;
+          // Находим новые сообщения, сравнивая массивы
+          const existingIds = messages.map(msg => msg._id);
+          const newMessages = response.data.filter(msg => !existingIds.includes(msg._id));
           
-        console.log('Fetching conversations from:', apiUrl);
-        
-        // Используем Promise.race для таймаута запроса
-        const res = await Promise.race([
-          axios.get(apiUrl),
-          timeoutPromise
-        ]);
-        
-        console.log('Fetched conversations:', res.data);
-        
-        // Проверяем, что ответ является массивом
-        if (!Array.isArray(res.data)) {
-          console.error('Invalid conversations data format, expected array');
-          setLoading(false);
-          return;
-        }
-        
-        // Обрабатываем полученных собеседников
-        const conversationUsers = res.data;
-        
-        // Если есть собеседники и у нас есть друзья в списке
-        if (conversationUsers.length > 0 && friends.length > 0) {
-          // Находим пользователя в списке друзей
-          const otherUserId = conversationUsers[0]._id;
-          const friend = friends.find(f => f._id === otherUserId);
+          console.log(`New messages count: ${newMessages.length}`);
           
-          if (friend) {
-            console.log('Setting selected friend:', friend);
-            setSelectedFriend(friend);
-            // Запрашиваем сообщения для этого диалога
-            const messagesApiUrl = Platform.OS === 'web' 
-              ? `http://localhost:5001/api/chat/${user._id}/${friend._id}` 
-              : `http://192.168.0.82:5001/api/chat/${user._id}/${friend._id}`;
-              
-            const messagesRes = await axios.get(messagesApiUrl);
-            console.log('Fetched messages for first conversation:', messagesRes.data);
+          // Проверяем, есть ли сообщения от друга (не от текущего пользователя)
+          const newFriendMessages = newMessages.filter(msg => 
+            msg.userId === selectedFriend._id && !msg.isSystemMessage
+          );
+          
+          console.log(`New friend messages count: ${newFriendMessages.length}`);
+          
+          // Если есть новые сообщения от друга и экран чата не в фокусе, показываем уведомление
+          if (newFriendMessages.length > 0) {
+            // Проверяем, имеет ли экран чата фокус в данный момент
+            const isScreenFocused = navigation.isFocused();
+            console.log('Is chat screen focused:', isScreenFocused);
             
-            // Проверка формата данных
-            if (Array.isArray(messagesRes.data)) {
-              setMessages(messagesRes.data);
+            if (!isScreenFocused) {
+              console.log('Chat screen not focused, creating notification');
+              createMessageNotification(newFriendMessages[0], selectedFriend);
             } else {
-              console.error('Invalid messages data format');
+              console.log('Chat screen is focused, not creating notification');
             }
-          } else {
-            console.log('Friend not found in friends list:', otherUserId);
           }
         }
         
-        // В любом случае завершаем загрузку
+        // Обновляем количество сообщений для этого друга
+        setPreviousMessageCounts(prev => ({
+          ...prev,
+          [selectedFriend._id]: currentCount
+        }));
+        
+        setMessages(response.data);
+        
+        // Когда сообщения загружены, прокручиваем к последнему
+        setTimeout(() => {
+          if (flatListRef.current && response.data.length > 0) {
+            flatListRef.current.scrollToEnd({ animated: true });
+          }
+        }, 200);
+      } else {
+        // Если нет выбранного друга, загружаем список друзей с последними сообщениями
+        console.log('No selected friend, loading friend list');
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      if (showLoading) {
+        setError('Could not load messages');
+      }
+    } finally {
+      if (showLoading) {
         setLoading(false);
       }
-      
-      // Прокручиваем к последнему сообщению
-      if (flatListRef.current && messages.length > 0) {
-        setTimeout(() => {
-          flatListRef.current.scrollToEnd({ animated: false });
-        }, 200);
-      }
-    } catch (e) {
-      if (e.message === 'Timeout') {
-        console.error('Request timed out');
-        setError('Request timed out');
-      } else {
-        console.error('Error fetching messages:', e);
-      }
-      setLoading(false);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -474,7 +525,7 @@ export default function ChatScreen({ route, navigation }) {
     setSuggestingDateTime(false);
   };
 
-  // Улучшенная функция отправки обычного сообщения
+  // Обновляем sendMessage для показа уведомлений
   const sendMessage = async () => {
     if (!text.trim() || !selectedFriend || !user || !user._id) return;
     
@@ -490,10 +541,11 @@ export default function ChatScreen({ route, navigation }) {
         text,
       });
       
+      // Отправляем сообщение на сервер
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/chat' 
         : 'http://192.168.0.82:5001/api/chat';
-        
+      
       const response = await axios.post(apiUrl, {
         userId: user._id,
         recipientId: selectedFriend._id,
@@ -503,21 +555,31 @@ export default function ChatScreen({ route, navigation }) {
       
       console.log('Message sent response:', response.data);
       
-      // Добавляем новое сообщение в список, не дожидаясь перезагрузки
+      // Добавляем сообщение в локальный список
       const newMessage = response.data;
       setMessages(prevMessages => [...prevMessages, newMessage]);
       
+      // Очищаем поле ввода
       setText('');
       
-      // Прокручиваем к новому сообщению
-      if (flatListRef.current) {
-        setTimeout(() => {
+      // Прокручиваем к последнему сообщению
+      setTimeout(() => {
+        if (flatListRef.current) {
           flatListRef.current.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    } catch (e) {
-      console.error('Error sending message:', e);
-      Alert.alert('Error', 'Failed to send message');
+        }
+      }, 100);
+      
+      // Обновляем счетчик сообщений для этого друга
+      setPreviousMessageCounts(prev => ({
+        ...prev,
+        [selectedFriend._id]: (prev[selectedFriend._id] || 0) + 1
+      }));
+      
+      return newMessage;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+      return null;
     }
   };
 

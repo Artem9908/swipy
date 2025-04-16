@@ -15,6 +15,7 @@ import {
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function MatchesScreen({ navigation, route }) {
   const { user } = route.params || {};
@@ -24,6 +25,8 @@ export default function MatchesScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [friendMatchCounts, setFriendMatchCounts] = useState({});
+  const [previousMatchCounts, setPreviousMatchCounts] = useState({});
+  const { showNotification } = useNotifications();
 
   useEffect(() => {
     loadData();
@@ -46,6 +49,90 @@ export default function MatchesScreen({ navigation, route }) {
       }
     }
   }, [friends, route.params]);
+
+  // Сравниваем новое количество совпадений с предыдущим и показываем уведомления
+  useEffect(() => {
+    // Пропускаем первую загрузку
+    if (Object.keys(previousMatchCounts).length === 0) {
+      setPreviousMatchCounts({...friendMatchCounts});
+      return;
+    }
+
+    // Проверяем, есть ли новые совпадения
+    Object.keys(friendMatchCounts).forEach(friendId => {
+      const currentCount = friendMatchCounts[friendId] || 0;
+      const previousCount = previousMatchCounts[friendId] || 0;
+      
+      // Если появились новые совпадения
+      if (currentCount > previousCount) {
+        // Находим информацию о друге
+        const friend = friends.find(f => f._id === friendId);
+        if (friend) {
+          // Получаем новые матчи
+          const friendMatches = matches.filter(match => match.friendId === friendId);
+          const newMatch = friendMatches[0]; // Берем первый матч для уведомления
+          
+          console.log('New match detected:', {
+            friend: friend.name || friend.username,
+            previousCount,
+            currentCount,
+            newMatch
+          });
+          
+          // Создаем уведомление
+          const notification = {
+            id: Date.now().toString(),
+            type: 'match',
+            message: `У вас с ${friend.name || friend.username} совпал ресторан ${newMatch?.restaurantName || 'Ресторан'}!`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            data: {
+              friendId: friendId,
+              restaurantId: newMatch?.restaurantId,
+              screen: 'Matches',
+              params: { initialFriendId: friendId }
+            }
+          };
+          
+          // Показываем уведомление
+          showNotification(notification);
+          
+          // Сохраняем на сервере
+          saveNotification(notification);
+        }
+      }
+    });
+    
+    // Обновляем предыдущие значения
+    setPreviousMatchCounts({...friendMatchCounts});
+  }, [friendMatchCounts]);
+  
+  // Сохранение уведомления на сервере
+  const saveNotification = async (notification) => {
+    try {
+      const apiUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001/api/notifications' 
+        : 'http://192.168.0.82:5001/api/notifications';
+      
+      console.log('Saving match notification to server:', notification);
+      
+      // Получаем информацию о текущем матче для этого друга
+      const friendMatches = matches.filter(match => match.friendId === notification.data.friendId);
+      const latestMatch = friendMatches.length > 0 ? friendMatches[0] : null;
+      
+      // Используем метод отправки тестового уведомления о совпадении
+      const response = await axios.post(`${apiUrl}/test/match`, {
+        userId: user._id,
+        friendId: notification.data.friendId,
+        restaurantId: notification.data.restaurantId || (latestMatch ? latestMatch.restaurantId : null),
+        restaurantName: latestMatch ? latestMatch.restaurantName : 'Ресторан'
+      });
+      
+      console.log('Match notification saved, server response:', response.data);
+    } catch (error) {
+      console.error('Error saving match notification:', error);
+    }
+  };
   
   const loadData = async (showLoader = true) => {
     if (showLoader) {

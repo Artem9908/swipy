@@ -10,12 +10,15 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
-  Alert
+  Alert,
+  Modal,
+  FlatList
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 import FullScreenImageViewer from '../components/FullScreenImageViewer';
+import { useNotifications } from '../context/NotificationContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,6 +34,10 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const [isLiked, setIsLiked] = useState(false);
   const [matchedFriends, setMatchedFriends] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [showInviteFriendModal, setShowInviteFriendModal] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const { showNotification } = useNotifications();
   
   useEffect(() => {
     console.log("Initial restaurant data:", JSON.stringify(initialRestaurant, null, 2));
@@ -343,6 +350,125 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     });
   };
   
+  // Добавляем функцию загрузки списка друзей
+  const fetchFriends = async () => {
+    try {
+      setLoadingFriends(true);
+      
+      const apiUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/users/${user._id}/friends` 
+        : `http://192.168.0.82:5001/api/users/${user._id}/friends`;
+      
+      const response = await axios.get(apiUrl);
+      setFriends(response.data);
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+    } finally {
+      setLoadingFriends(false);
+    }
+  };
+  
+  // Добавляем функцию для открытия модального окна с выбором друга для приглашения
+  const inviteFriend = () => {
+    fetchFriends();
+    setShowInviteFriendModal(true);
+  };
+  
+  // Функция для приглашения выбранного друга
+  const handleInviteFriend = (friend) => {
+    setShowInviteFriendModal(false);
+    navigation.navigate('Reservation', { 
+      restaurant, 
+      user, 
+      inviteFriend: friend 
+    });
+  };
+
+  // Компонент для отображения списка друзей в модальном окне
+  const renderFriendItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.friendItem}
+      onPress={() => handleInviteFriend(item)}
+    >
+      <Image 
+        source={{ 
+          uri: item.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name || item.username)}&background=4ecdc4&color=fff` 
+        }} 
+        style={styles.friendAvatar} 
+      />
+      <View style={styles.friendInfo}>
+        <Text style={styles.friendName}>{item.name || item.username}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.text.secondary} />
+    </TouchableOpacity>
+  );
+  
+  // Обновляем интерфейс добавляя кнопку для приглашения друга
+  const renderActionButtons = () => (
+    <View style={styles.actionButtonsContainer}>
+      <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
+        <Ionicons name="call" size={24} color={COLORS.primary} />
+        <Text style={styles.actionButtonText}>Call</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.actionButton} onPress={getDirections}>
+        <Ionicons name="navigate" size={24} color={COLORS.primary} />
+        <Text style={styles.actionButtonText}>Directions</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.actionButton} onPress={visitWebsite}>
+        <Ionicons name="globe" size={24} color={COLORS.primary} />
+        <Text style={styles.actionButtonText}>Website</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.actionButton} onPress={inviteFriend}>
+        <Ionicons name="person-add" size={24} color={COLORS.primary} />
+        <Text style={styles.actionButtonText}>Invite</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Добавляем модальное окно для выбора друга
+  const renderInviteFriendModal = () => (
+    <Modal
+      visible={showInviteFriendModal}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setShowInviteFriendModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Invite a Friend</Text>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowInviteFriendModal(false)}
+            >
+              <Ionicons name="close" size={24} color={COLORS.text.primary} />
+            </TouchableOpacity>
+          </View>
+          
+          {loadingFriends ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={styles.loading} />
+          ) : friends.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people" size={40} color={COLORS.text.light} />
+              <Text style={styles.emptyText}>You don't have any friends yet</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={friends}
+              renderItem={renderFriendItem}
+              keyExtractor={item => item._id}
+              contentContainerStyle={styles.friendsList}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -470,20 +596,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
             <Text style={styles.actionText}>Reserve</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton} onPress={getDirections}>
-            <Ionicons name="navigate-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.actionText}>Directions</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
-            <Ionicons name="call-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.actionText}>Call</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={visitWebsite}>
-            <Ionicons name="globe-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.actionText}>Website</Text>
-          </TouchableOpacity>
+          {renderActionButtons()}
           
           <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
             <Ionicons 
@@ -637,6 +750,8 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         imageUri={getPhotoUrl().uri}
         onClose={() => setFullScreenVisible(false)}
       />
+      
+      {renderInviteFriendModal()}
     </ScrollView>
   );
 }
@@ -880,17 +995,16 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.padding.sm,
   },
   friendAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: SIZES.padding.sm,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: SIZES.padding.md,
   },
   friendInfo: {
-    flexDirection: 'column',
+    flex: 1,
   },
   friendName: {
-    ...FONTS.body,
-    fontWeight: 'bold',
+    ...FONTS.h3,
     color: COLORS.text.primary,
   },
   friendUsername: {
@@ -988,5 +1102,59 @@ const styles = StyleSheet.create({
   reviewDate: {
     ...FONTS.caption,
     color: COLORS.text.secondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: width * 0.9,
+    maxHeight: height * 0.7,
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius.lg,
+    paddingVertical: SIZES.padding.lg,
+    ...SHADOWS.large,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding.lg,
+    paddingBottom: SIZES.padding.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    ...FONTS.h2,
+    color: COLORS.text.primary,
+  },
+  closeButton: {
+    padding: SIZES.padding.xs,
+  },
+  friendsList: {
+    paddingHorizontal: SIZES.padding.md,
+  },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.padding.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  emptyContainer: {
+    padding: SIZES.padding.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...FONTS.body,
+    color: COLORS.text.light,
+    marginTop: SIZES.padding.md,
+    textAlign: 'center',
+  },
+  loading: {
+    padding: SIZES.padding.xl,
   },
 }); 

@@ -17,14 +17,15 @@ import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 import ActionButton from '../components/ActionButton';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function ReservationScreen({ route, navigation }) {
-  const { user, restaurant } = route.params || {};
+  const { user, restaurant, inviteFriend } = route.params || {};
   
   // Log received data
-  console.log("Reservation screen received:", { user, restaurant });
+  console.log("Reservation screen received:", { user, restaurant, inviteFriend });
   
-  const [restaurantId, setRestaurantId] = useState(restaurant ? restaurant.id : '');
+  const [restaurantId, setRestaurantId] = useState(restaurant ? restaurant._id : '');
   const [restaurantName, setRestaurantName] = useState(restaurant ? restaurant.name : '');
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
@@ -36,6 +37,7 @@ export default function ReservationScreen({ route, navigation }) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { showNotification } = useNotifications();
 
   useEffect(() => {
     fetchRestaurants();
@@ -99,6 +101,40 @@ export default function ReservationScreen({ route, navigation }) {
     }
   };
 
+  // Функция для создания уведомления о приглашении в ресторан
+  const createInvitationNotification = async (friendId, reservationId) => {
+    try {
+      // Создаем уведомление
+      const notification = {
+        id: Date.now().toString(),
+        type: 'invitation',
+        message: `${user.name || user.username} пригласил тебя в ${restaurantName}. Посмотри?`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        data: {
+          friendId: friendId,
+          restaurantId: restaurantId,
+          reservationId: reservationId
+        }
+      };
+      
+      // Сохраняем на сервере
+      const apiUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001/api/notifications' 
+        : 'http://192.168.0.82:5001/api/notifications';
+      
+      await axios.post(apiUrl, {
+        userId: friendId,
+        type: notification.type,
+        message: notification.message,
+        data: notification.data,
+        relatedUserId: user._id
+      });
+    } catch (error) {
+      console.error('Error creating invitation notification:', error);
+    }
+  };
+
   const makeReservation = async () => {
     if (!restaurantId) {
       Alert.alert('Error', 'Please select a restaurant');
@@ -116,7 +152,7 @@ export default function ReservationScreen({ route, navigation }) {
         ? 'http://localhost:5001/api/reservations' 
         : 'http://192.168.0.82:5001/api/reservations';
         
-      await axios.post(apiUrl, {
+      const response = await axios.post(apiUrl, {
         userId: user._id,
         restaurantId: restaurantId,
         restaurantName: restaurantName,
@@ -126,9 +162,19 @@ export default function ReservationScreen({ route, navigation }) {
         status: 'pending'
       });
       
+      // Если передан друг для приглашения, отправляем ему уведомление
+      if (inviteFriend && inviteFriend._id) {
+        await createInvitationNotification(inviteFriend._id, response.data._id);
+        
+        // Отправляем сообщение о приглашении через чат
+        await sendInvitationMessage(inviteFriend._id, reservationDateTime);
+      }
+      
       Alert.alert(
         'Success',
-        'Your reservation has been created successfully!',
+        inviteFriend 
+          ? `Your reservation has been created and ${inviteFriend.name || inviteFriend.username} has been invited!` 
+          : 'Your reservation has been created successfully!',
         [
           {
             text: 'View My Reservations',
@@ -143,6 +189,27 @@ export default function ReservationScreen({ route, navigation }) {
     } catch (e) {
       console.error('Reservation error:', e);
       Alert.alert('Error', 'Failed to create reservation. Please try again.');
+    }
+  };
+  
+  // Функция для отправки сообщения о приглашении через чат
+  const sendInvitationMessage = async (friendId, reservationDateTime) => {
+    try {
+      const apiUrl = Platform.OS === 'web' 
+        ? 'http://localhost:5001/api/chat' 
+        : 'http://192.168.0.82:5001/api/chat';
+      
+      const formattedDate = formatDate(reservationDateTime);
+      const formattedTime = formatTime(reservationDateTime);
+      
+      await axios.post(apiUrl, {
+        userId: user._id,
+        recipientId: friendId,
+        text: `Привет! Я приглашаю тебя в ресторан "${restaurantName}" ${formattedDate} в ${formattedTime}. Присоединишься?`,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error sending invitation message:', error);
     }
   };
 

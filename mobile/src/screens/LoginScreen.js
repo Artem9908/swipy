@@ -27,44 +27,60 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState('');
 
   const handleAuth = async () => {
+    console.log('handleAuth called with:', { isLogin, email, password, name });
+    
     if (!email || !password) {
+      console.log('Missing email or password');
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
     
     if (!isLogin && !name) {
+      console.log('Sign up mode but missing name');
       Alert.alert('Error', 'Please enter your name');
       return;
     }
     
     try {
+      console.log('Setting loading state to true');
       setLoading(true);
       
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${isLogin ? 'login' : 'register'}` 
-        : `http://192.168.0.82:5001/api/users/${isLogin ? 'login' : 'register'}`;
+        : `http://localhost:5001/api/users/${isLogin ? 'login' : 'register'}`;
+      
+      console.log('API URL:', apiUrl);
       
       const userData = isLogin 
         ? { username: email, password } 
         : { name, username: email, password };
       
+      console.log('Sending request with data:', JSON.stringify(userData));
+      
       const response = await axios.post(apiUrl, userData);
+      
+      console.log('Response received:', JSON.stringify(response.data));
       
       setLoading(false);
       
       if (response.data) {
-        // Переходим на главный экран и передаем данные пользователя
+        // Navigate to main screen and pass user data
+        console.log('Navigation to Main screen');
         navigation.reset({
           index: 0,
           routes: [{ name: 'Main', params: { user: response.data } }],
         });
       }
     } catch (error) {
+      console.log('Error in handleAuth:', error);
+      console.log('Error details:', error.response?.data);
+      
       setLoading(false);
       console.error('Auth error:', error);
       
       const errorMessage = error.response?.data?.message || 
-        (isLogin ? 'Login failed' : 'Registration failed');
+                          error.response?.data?.error ||
+                          (isLogin ? 'Login failed' : 'Registration failed');
       
       Alert.alert('Error', errorMessage);
     }
@@ -95,27 +111,49 @@ export default function LoginScreen({ navigation }) {
   };
 
   const login = async () => {
+    console.log('login function called with:', { email, password });
+    
     if (!email || !password) {
+      console.log('Missing email or password');
       setError('Please enter both username and password');
       return;
     }
     
     try {
-      // Используем localhost для веб или IP для устройств
+      console.log('Setting loading state to true');
+      setLoading(true);
+      // Use localhost for web or IP for devices
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/users/login' 
-        : 'http://192.168.0.82:5001/api/users/login';
-        
-      const res = await axios.post(apiUrl, { username: email, password });
+        : 'http://localhost:5001/api/users/login';
       
-      // Изменяем навигацию на Main вместо Restaurants
+      console.log('API URL:', apiUrl);
+      
+      const userData = { username: email, password };
+      console.log('Sending request with data:', JSON.stringify(userData));
+      
+      const res = await axios.post(apiUrl, userData);
+      
+      console.log('Response received:', JSON.stringify(res.data));
+      
+      setLoading(false);
+      
+      // Navigate to Main instead of Restaurants
+      console.log('Navigation to Main screen');
       navigation.reset({
         index: 0,
         routes: [{ name: 'Main', params: { user: res.data } }],
       });
     } catch (e) {
+      console.log('Error in login:', e);
+      console.log('Error details:', e.response?.data);
+      
+      setLoading(false);
       console.error('Login error:', e);
-      setError('Invalid credentials');
+      const errorMessage = e.response?.data?.message || 
+                          e.response?.data?.error || 
+                          'Invalid credentials';
+      setError(errorMessage);
     }
   };
 

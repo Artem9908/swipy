@@ -168,6 +168,48 @@ app.post('/api/users/login', (req, res) => {
   return res.json(user);
 });
 
+// Registration endpoint
+app.post('/api/users/register', (req, res) => {
+  console.log('Register request received:', req.body);
+  const { name, username, password } = req.body;
+  
+  // Check if all required fields are provided
+  if (!name || !username || !password) {
+    console.log('Missing required fields');
+    return res.status(400).json({ 
+      error: 'Missing required fields', 
+      message: 'Name, username, and password are required' 
+    });
+  }
+  
+  // Check if user already exists
+  if (users.find(u => u.username === username)) {
+    console.log('User already exists');
+    return res.status(400).json({ 
+      error: 'User already exists', 
+      message: 'A user with this username already exists' 
+    });
+  }
+  
+  // Create new user
+  const newUser = { 
+    _id: String(users.length + 1),
+    name, 
+    username, 
+    password
+  };
+  
+  // Add user to the array
+  users.push(newUser);
+  console.log('New user registered:', newUser);
+  
+  // Return user data without password
+  const userData = { ...newUser };
+  delete userData.password;
+  
+  return res.status(201).json(userData);
+});
+
 // Add logout endpoint
 app.post('/api/users/logout', (req, res) => {
   const { userId } = req.body;

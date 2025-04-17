@@ -27,32 +27,46 @@ export default function RegisterScreen({ navigation }) {
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
+    console.log('handleRegister called with:', { name, email, password, confirmPassword });
+    
     if (!name || !email || !password || !confirmPassword) {
+      console.log('Missing required fields');
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
     
     if (password !== confirmPassword) {
+      console.log('Passwords do not match');
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
     
     try {
+      console.log('Setting loading state to true');
       setLoading(true);
       
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/users/register' 
-        : 'http://192.168.0.82:5001/api/users/register';
+        : 'http://localhost:5001/api/users/register';
       
-      const response = await axios.post(apiUrl, { 
+      console.log('API URL:', apiUrl);
+      
+      const userData = { 
         name, 
         username: email, 
         password 
-      });
+      };
+      
+      console.log('Sending request with data:', JSON.stringify(userData));
+      
+      const response = await axios.post(apiUrl, userData);
+      
+      console.log('Response received:', JSON.stringify(response.data));
       
       setLoading(false);
       
       if (response.data) {
+        console.log('Registration successful, navigating to Login');
         Alert.alert(
           'Success', 
           'Registration successful! Please log in.',
@@ -60,10 +74,15 @@ export default function RegisterScreen({ navigation }) {
         );
       }
     } catch (error) {
+      console.log('Error in handleRegister:', error);
+      console.log('Error details:', error.response?.data);
+      
       setLoading(false);
       console.error('Registration error:', error);
       
-      const errorMessage = error.response?.data?.message || 'Registration failed';
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Registration failed. Please try again.';
       Alert.alert('Error', errorMessage);
     }
   };

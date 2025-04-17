@@ -13,9 +13,9 @@ const GOOGLE_API_KEY = 'AIzaSyAt3PNU2oefv5rYg9GGr3koH1DfqxeJGqM'; // Замен�
 
 // Моковые данные для пользователей и других сущностей
 let users = [
-  { username: 'artem2', password: 'yourpass', _id: '1', name: 'Artem' },
-  { username: 'user2', password: 'pass2', _id: '2', name: 'User Two' },
-  { username: 'user3', password: 'pass3', _id: '3', name: 'User Three' }
+  { username: 'artem2', email: 'artem@example.com', password: 'yourpass', _id: '1', name: 'Artem' },
+  { username: 'user2', email: 'user2@example.com', password: 'pass2', _id: '2', name: 'User Two' },
+  { username: 'user3', email: 'user3@example.com', password: 'pass3', _id: '3', name: 'User Three' }
 ];
 
 // Кэш для ресторанов
@@ -158,36 +158,67 @@ function generateUniqueId() {
 // Маршруты API
 app.post('/api/users/login', (req, res) => {
   const { username, password } = req.body;
+  console.log('Login attempt:', { username, password: '****' });
   
-  const user = users.find(u => u.username === username && u.password === password);
+  // Find user by username or email
+  const user = users.find(u => 
+    (u.username.toLowerCase() === username.toLowerCase() || 
+     u.email.toLowerCase() === username.toLowerCase()) && 
+    u.password === password
+  );
   
   if (!user) {
+    console.log('Invalid credentials for:', username);
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   
-  return res.json(user);
+  console.log('Login successful for user:', user.name);
+  
+  // Return user data without password
+  const userData = { ...user };
+  delete userData.password;
+  
+  return res.json(userData);
 });
 
 // Registration endpoint
 app.post('/api/users/register', (req, res) => {
   console.log('Register request received:', req.body);
-  const { name, username, password } = req.body;
+  const { name, username, email, password, confirmPassword } = req.body;
   
   // Check if all required fields are provided
-  if (!name || !username || !password) {
+  if (!name || !username || !email || !password || !confirmPassword) {
     console.log('Missing required fields');
     return res.status(400).json({ 
       error: 'Missing required fields', 
-      message: 'Name, username, and password are required' 
+      message: 'Name, username, email, password, and confirm password are required' 
     });
   }
   
-  // Check if user already exists
-  if (users.find(u => u.username === username)) {
-    console.log('User already exists');
+  // Check if passwords match
+  if (password !== confirmPassword) {
+    console.log('Passwords do not match');
     return res.status(400).json({ 
-      error: 'User already exists', 
-      message: 'A user with this username already exists' 
+      error: 'Passwords do not match', 
+      message: 'Password and confirm password must match' 
+    });
+  }
+  
+  // Check if username already exists
+  if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+    console.log('Username already exists');
+    return res.status(400).json({ 
+      error: 'Username already exists', 
+      message: 'This username is already taken. Please choose another one.' 
+    });
+  }
+  
+  // Check if email already exists
+  if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    console.log('Email already exists');
+    return res.status(400).json({ 
+      error: 'Email already exists', 
+      message: 'This email address is already registered. Please use another email or login.' 
     });
   }
   
@@ -195,7 +226,8 @@ app.post('/api/users/register', (req, res) => {
   const newUser = { 
     _id: String(users.length + 1),
     name, 
-    username, 
+    username,
+    email,
     password
   };
   

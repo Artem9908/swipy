@@ -19,7 +19,9 @@ import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 
 export default function LoginScreen({ navigation }) {
   const [isLogin, setIsLogin] = useState(true);
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,18 +29,29 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState('');
 
   const handleAuth = async () => {
-    console.log('handleAuth called with:', { isLogin, email, password, name });
+    console.log('handleAuth called with:', { 
+      isLogin, 
+      loginIdentifier, 
+      email, 
+      username, 
+      password, 
+      name 
+    });
     
-    if (!email || !password) {
-      console.log('Missing email or password');
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-    
-    if (!isLogin && !name) {
-      console.log('Sign up mode but missing name');
-      Alert.alert('Error', 'Please enter your name');
-      return;
+    if (isLogin) {
+      // For login, require loginIdentifier (username or email) and password
+      if (!loginIdentifier || !password) {
+        console.log('Missing login credentials');
+        Alert.alert('Error', 'Please provide username/email and password');
+        return;
+      }
+    } else {
+      // For signup, require all fields
+      if (!name || !username || !email || !password) {
+        console.log('Missing signup fields');
+        Alert.alert('Error', 'Please fill in all required fields');
+        return;
+      }
     }
     
     try {
@@ -51,9 +64,20 @@ export default function LoginScreen({ navigation }) {
       
       console.log('API URL:', apiUrl);
       
+      // For login, use loginIdentifier
+      // For signup, send all fields
       const userData = isLogin 
-        ? { username: email, password } 
-        : { name, username: email, password };
+        ? { 
+            username: loginIdentifier, // The server handles whether this is a username or email
+            password 
+          } 
+        : { 
+            name, 
+            username,
+            email,
+            password, 
+            confirmPassword: password 
+          };
       
       console.log('Sending request with data:', JSON.stringify(userData));
       
@@ -88,10 +112,13 @@ export default function LoginScreen({ navigation }) {
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
-    // Сбрасываем поля при переключении режима
+    // Reset fields when switching modes
+    setLoginIdentifier('');
     setEmail('');
+    setUsername('');
     setPassword('');
     setName('');
+    setError('');
   };
 
   const handleGuestLogin = () => {
@@ -114,8 +141,8 @@ export default function LoginScreen({ navigation }) {
     console.log('login function called with:', { email, password });
     
     if (!email || !password) {
-      console.log('Missing email or password');
-      setError('Please enter both username and password');
+      console.log('Missing email/username or password');
+      setError('Please enter both username/email and password');
       return;
     }
     
@@ -181,28 +208,54 @@ export default function LoginScreen({ navigation }) {
             </Text>
             
             {!isLogin && (
+              <>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Full Name"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-circle" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Username"
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                  />
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <Ionicons name="mail" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email Address"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </>
+            )}
+            
+            {isLogin && (
               <View style={styles.inputContainer}>
                 <Ionicons name="person" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Full Name"
-                  value={name}
-                  onChangeText={setName}
+                  placeholder="Username or Email"
+                  value={loginIdentifier}
+                  onChangeText={setLoginIdentifier}
+                  autoCapitalize="none"
                 />
               </View>
             )}
-            
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email Address"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
             
             <View style={styles.inputContainer}>
               <Ionicons name="lock-closed" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
@@ -271,7 +324,7 @@ export default function LoginScreen({ navigation }) {
           </View>
           
           <Text style={styles.hint}>
-            Try: username "artem2", password "yourpass"
+            Try username "artem2" or email "artem@example.com", password "yourpass"
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

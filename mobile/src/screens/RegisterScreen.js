@@ -19,6 +19,7 @@ import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,9 +28,9 @@ export default function RegisterScreen({ navigation }) {
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
-    console.log('handleRegister called with:', { name, email, password, confirmPassword });
+    console.log('handleRegister called with:', { name, username, email, password, confirmPassword });
     
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !username || !email || !password || !confirmPassword) {
       console.log('Missing required fields');
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -53,8 +54,10 @@ export default function RegisterScreen({ navigation }) {
       
       const userData = { 
         name, 
-        username: email, 
-        password 
+        username,
+        email,
+        password,
+        confirmPassword
       };
       
       console.log('Sending request with data:', JSON.stringify(userData));
@@ -113,6 +116,17 @@ export default function RegisterScreen({ navigation }) {
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
+              />
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Ionicons name="person-circle-outline" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
               />
             </View>
             

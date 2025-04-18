@@ -412,9 +412,38 @@ export default function RestaurantListScreen({ navigation, route }) {
   };
 
   const viewRestaurantDetails = (restaurant) => {
+    if (!restaurant) {
+      console.error('Attempted to view details of undefined restaurant');
+      return;
+    }
+    
     console.log('Viewing restaurant details:', restaurant.name);
     console.log('Restaurant ID:', restaurant.place_id || restaurant._id);
-    navigation.navigate('RestaurantDetail', { restaurant, user });
+    
+    // Создадим копию объекта ресторана, чтобы избежать проблем с передачей ссылок
+    const restaurantCopy = {
+      ...restaurant,
+      _id: restaurant._id || restaurant.place_id,
+      place_id: restaurant.place_id || restaurant._id,
+      name: restaurant.name || 'Unknown Restaurant',
+      cuisine: restaurant.cuisine || '',
+      priceRange: restaurant.priceRange || '',
+      rating: restaurant.rating || 0,
+      address: restaurant.address || restaurant.location || '',
+      location: restaurant.location || restaurant.address || '',
+      image: restaurant.image || (restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos[0] : null),
+      photos: restaurant.photos || (restaurant.image ? [restaurant.image] : [])
+    };
+    
+    console.log('Navigating to RestaurantDetail with data:', JSON.stringify(restaurantCopy, null, 2));
+    
+    // Отдельно проверим пользователя
+    const userData = user ? { ...user } : null;
+    
+    navigation.navigate('RestaurantDetail', { 
+      restaurant: restaurantCopy, 
+      user: userData 
+    });
   };
 
   // Function to update user's swipe status

@@ -12,7 +12,8 @@ import {
   Dimensions,
   Alert,
   Modal,
-  FlatList
+  FlatList,
+  BackHandler
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,19 @@ import { useNotifications } from '../context/NotificationContext';
 const { width, height } = Dimensions.get('window');
 
 export default function RestaurantDetailScreen({ route, navigation }) {
+  // Проверка наличия параметров route.params
+  if (!route.params || !route.params.restaurant) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.error} />
+        <Text style={styles.errorText}>Restaurant data is missing</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const { restaurant: initialRestaurant, user } = route.params;
   const [restaurant, setRestaurant] = useState(initialRestaurant);
   const [reviews, setReviews] = useState([]);
@@ -37,17 +51,41 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const [showInviteFriendModal, setShowInviteFriendModal] = useState(false);
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
-  const { showNotification } = useNotifications();
+  const notificationContext = useNotifications();
+  const showNotification = notificationContext?.showNotification || (() => {});
   
   useEffect(() => {
     console.log("Initial restaurant data:", JSON.stringify(initialRestaurant, null, 2));
-    fetchRestaurantDetails();
-    checkIfLiked();
     
-    // Проверяем друзей, которые лайкнули этот ресторан
-    if (user && user._id && (initialRestaurant.place_id || initialRestaurant._id)) {
-      fetchMatchedFriends();
+    // Проверяем, есть ли у нас ID ресторана для загрузки деталей
+    if (initialRestaurant && (initialRestaurant.place_id || initialRestaurant._id)) {
+      fetchRestaurantDetails();
+      checkIfLiked();
+      
+      // Проверяем друзей, которые лайкнули этот ресторан
+      if (user && user._id) {
+        fetchMatchedFriends();
+      }
+    } else {
+      setLoading(false);
+      setError("Invalid restaurant data");
     }
+    
+    // Добавляем обработчик аппаратной кнопки "назад" для Android
+    const backHandler = Platform.OS === 'android' 
+      ? BackHandler.addEventListener('hardwareBackPress', () => {
+          console.log('Hardware back button pressed in RestaurantDetailScreen');
+          navigation.goBack();
+          return true; // Предотвращаем стандартное поведение
+        })
+      : null;
+    
+    // Очистка при размонтировании компонента
+    return () => {
+      if (backHandler) {
+        backHandler.remove();
+      }
+    };
   }, []);
   
   const fetchRestaurantDetails = async () => {
@@ -63,36 +101,80 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         return;
       }
       
+      // Создаем источник токена для отмены запроса
+      const cancelTokenSource = axios.CancelToken.source();
+      const timeoutId = setTimeout(() => {
+        console.log('Request timeout - cancelling');
+        cancelTokenSource.cancel('Request took too long');
+      }, 10000); // 10 секунд таймаут
+      
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/restaurants/${restaurantId}` 
         : `http://192.168.0.82:5001/api/restaurants/${restaurantId}`;
       
       console.log('Fetching restaurant details from:', apiUrl);
-      const response = await axios.get(apiUrl);
       
-      if (response.data) {
-        console.log('Restaurant details received:');
-        console.log('Has photos:', !!response.data.photos);
-        if (response.data.photos) {
-          console.log('Number of photos:', response.data.photos.length);
-          console.log('First photo URL:', response.data.photos[0]);
-        }
-        console.log('Has image:', !!response.data.image);
-        if (response.data.image) {
-          console.log('Image URL:', response.data.image);
-        }
+      try {
+        const response = await axios.get(apiUrl, {
+          cancelToken: cancelTokenSource.token,
+          timeout: 10000
+        });
         
-        setRestaurant(response.data);
+        clearTimeout(timeoutId);
         
-        if (response.data.reviews) {
-          setReviews(response.data.reviews);
+        if (response.data && response.data.name) {
+          console.log('Restaurant details received:');
+          console.log('Restaurant name:', response.data.name);
+          console.log('Has photos:', !!response.data.photos);
+          if (response.data.photos) {
+            console.log('Number of photos:', response.data.photos.length);
+            console.log('First photo URL:', response.data.photos[0]);
+          }
+          console.log('Has image:', !!response.data.image);
+          if (response.data.image) {
+            console.log('Image URL:', response.data.image);
+          }
+          
+          // Объединяем полученные данные с начальными данными для заполнения пробелов
+          const mergedData = {
+            ...initialRestaurant,
+            ...response.data,
+            // Убедимся, что ID сохраняется в обоих форматах
+            _id: response.data._id || initialRestaurant._id || response.data.place_id || initialRestaurant.place_id,
+            place_id: response.data.place_id || initialRestaurant.place_id || response.data._id || initialRestaurant._id
+          };
+          
+          setRestaurant(mergedData);
+          
+          if (response.data.reviews) {
+            setReviews(response.data.reviews);
+          }
+        } else {
+          // Обработка пустого или некорректного ответа от сервера
+          console.error('Invalid response data:', response.data);
+          setError('Received invalid restaurant data from server');
+          // Fall back to initial data if it has a name
+          if (initialRestaurant && initialRestaurant.name) {
+            console.log('Falling back to initial data');
+            setRestaurant(initialRestaurant);
+          } else {
+            setError('Restaurant information is unavailable');
+          }
+        }
+      } catch (axiosError) {
+        if (axios.isCancel(axiosError)) {
+          console.log('Request cancelled:', axiosError.message);
+        } else {
+          throw axiosError; // Проброс ошибки для обработки во внешнем catch
         }
       }
     } catch (err) {
       console.error('Error fetching restaurant details:', err);
       setError('Failed to load restaurant details');
       // Fall back to initial data
-      setRestaurant(initialRestaurant);
+      if (initialRestaurant && initialRestaurant.name) {
+        setRestaurant(initialRestaurant);
+      }
     } finally {
       setLoading(false);
     }
@@ -101,16 +183,58 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const getPhotoUrl = () => {
     let photoUrl;
     
-    if (restaurant.photos && restaurant.photos.length > 0) {
-      photoUrl = { uri: restaurant.photos[currentPhotoIndex] };
-    } else if (restaurant.image) {
-      photoUrl = { uri: restaurant.image };
-    } else {
-      photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
+    try {
+      const validateUri = (uri) => {
+        if (!uri) return false;
+        
+        // Проверка, что URI - строка
+        if (typeof uri !== 'string') return false;
+        
+        // Базовая проверка на валидный URL
+        return uri.startsWith('http://') || uri.startsWith('https://');
+      };
+      
+      if (restaurant && restaurant.photos && restaurant.photos.length > 0) {
+        // Проверяем, что индекс фото в допустимом диапазоне
+        if (currentPhotoIndex >= 0 && currentPhotoIndex < restaurant.photos.length) {
+          const photoUri = restaurant.photos[currentPhotoIndex];
+          if (validateUri(photoUri)) {
+            photoUrl = { uri: photoUri };
+          } else {
+            // Если URI невалидный, ищем другие валидные фото
+            const validPhoto = restaurant.photos.find(validateUri);
+            if (validPhoto) {
+              photoUrl = { uri: validPhoto };
+            } else {
+              photoUrl = { uri: 'https://via.placeholder.com/400x300?text=Invalid+Image+URL' };
+            }
+          }
+        } else {
+          // Если индекс некорректный, используем первое фото
+          if (validateUri(restaurant.photos[0])) {
+            photoUrl = { uri: restaurant.photos[0] };
+          } else {
+            photoUrl = { uri: 'https://via.placeholder.com/400x300?text=Invalid+Image+URL' };
+          }
+        }
+      } else if (restaurant && restaurant.image) {
+        if (validateUri(restaurant.image)) {
+          photoUrl = { uri: restaurant.image };
+        } else {
+          photoUrl = { uri: 'https://via.placeholder.com/400x300?text=Invalid+Image+URL' };
+        }
+      } else {
+        // Если нет фото, используем заполнитель
+        photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
+      }
+      
+      console.log('Photo URL:', JSON.stringify(photoUrl));
+      return photoUrl;
+    } catch (error) {
+      console.error('Error getting photo URL:', error);
+      // В случае ошибки, возвращаем заглушку
+      return { uri: 'https://via.placeholder.com/400x300?text=Error+Loading+Image' };
     }
-    
-    console.log('Photo URL:', JSON.stringify(photoUrl));
-    return photoUrl;
   };
   
   const nextPhoto = () => {
@@ -486,6 +610,28 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         <TouchableOpacity style={styles.retryButton} onPress={fetchRestaurantDetails}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.retryButton, { marginTop: 10, backgroundColor: COLORS.text.secondary }]} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  
+  // Проверка на отсутствие данных ресторана после загрузки
+  if (!restaurant || (!restaurant.name && !restaurant.place_id && !restaurant._id)) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.error} />
+        <Text style={styles.errorText}>Restaurant data is incomplete or missing</Text>
+        <TouchableOpacity 
+          style={styles.retryButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -494,7 +640,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     <ScrollView style={styles.container}>
       {/* Restaurant Image */}
       <View style={styles.imageContainer}>
-        {restaurant.photos && restaurant.photos.length > 0 || restaurant.image ? (
+        {restaurant && (restaurant.photos && restaurant.photos.length > 0 || restaurant.image) ? (
           <>
             <TouchableOpacity 
               activeOpacity={0.9}
@@ -510,6 +656,10 @@ export default function RestaurantDetailScreen({ route, navigation }) {
                 style={styles.headerImage}
                 onLoadStart={() => setImageLoading(true)}
                 onLoadEnd={() => setImageLoading(false)}
+                onError={(e) => {
+                  console.error('Error loading image:', e.nativeEvent.error);
+                  setImageLoading(false);
+                }}
               />
             </TouchableOpacity>
             
@@ -540,7 +690,10 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            console.log('Back button pressed, navigating back');
+            navigation.goBack();
+          }}
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -745,11 +898,13 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         )}
       </View>
       
-      <FullScreenImageViewer
-        visible={fullScreenVisible}
-        imageUri={getPhotoUrl().uri}
-        onClose={() => setFullScreenVisible(false)}
-      />
+      {restaurant.photos && restaurant.photos.length > 0 && (
+        <FullScreenImageViewer
+          visible={fullScreenVisible}
+          imageUri={getPhotoUrl().uri}
+          onClose={() => setFullScreenVisible(false)}
+        />
+      )}
       
       {renderInviteFriendModal()}
     </ScrollView>

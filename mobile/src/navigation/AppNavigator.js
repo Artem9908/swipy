@@ -145,8 +145,24 @@ function MainTabs({ route }) {
       case 'invitation':
         console.log('Navigating to RestaurantDetail screen with restaurantId:', data.restaurantId);
         if (data.restaurantId) {
+          // Создаем полный объект ресторана для предотвращения ошибки
+          const restaurantData = {
+            _id: data.restaurantId,
+            place_id: data.restaurantId,
+            name: data.restaurantName || 'Unknown Restaurant',
+            image: data.image || null,
+            photos: data.image ? [data.image] : [],
+            cuisine: data.cuisine || '',
+            priceRange: data.priceRange || '',
+            rating: data.rating || 0,
+            address: data.location || '',
+            location: data.location || ''
+          };
+          
+          console.log('Navigating with restaurant data:', JSON.stringify(restaurantData, null, 2));
+          
           navigation.navigate('RestaurantDetail', { 
-            restaurant: { _id: data.restaurantId },
+            restaurant: restaurantData,
             user
           });
         } else {
@@ -314,7 +330,11 @@ export default function AppNavigator() {
         />
         <Stack.Screen 
           name="RestaurantDetail" 
-          component={RestaurantDetailScreen} 
+          component={({ route, navigation }) => (
+            <NotificationProvider userId={route.params?.user?._id}>
+              <RestaurantDetailScreen route={route} navigation={navigation} />
+            </NotificationProvider>
+          )}
           options={({ route }) => ({ 
             headerShown: false,
           })}

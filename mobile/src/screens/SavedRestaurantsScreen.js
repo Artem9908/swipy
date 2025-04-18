@@ -216,19 +216,38 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   };
 
   const viewRestaurantDetails = (restaurant) => {
-    // Convert saved restaurant format to the format expected by RestaurantDetailScreen
+    if (!restaurant || !restaurant.restaurantId) {
+      console.error('Cannot view details: restaurant data is incomplete');
+      Alert.alert('Error', 'Restaurant data is incomplete');
+      return;
+    }
+    
+    console.log(`Viewing details for restaurant: ${restaurant.restaurantId} (${restaurant.restaurantName})`);
+    
+    // Создаем полный объект ресторана с гарантированно валидными полями
     const restaurantDetails = {
       _id: restaurant.restaurantId,
       place_id: restaurant.restaurantId,
-      name: restaurant.restaurantName,
-      image: restaurant.image,
-      cuisine: restaurant.cuisine,
-      priceRange: restaurant.priceRange,
-      rating: restaurant.rating,
-      address: restaurant.location
+      name: restaurant.restaurantName || 'Unknown Restaurant',
+      image: restaurant.image || null,
+      photos: restaurant.image ? [restaurant.image] : [],
+      cuisine: restaurant.cuisine || '',
+      priceRange: restaurant.priceRange || '',
+      rating: restaurant.rating || 0,
+      address: restaurant.location || '',
+      location: restaurant.location || '',
+      description: restaurant.description || ''
     };
     
-    navigation.navigate('RestaurantDetail', { restaurant: restaurantDetails, user });
+    console.log('Navigating to RestaurantDetail with data:', JSON.stringify(restaurantDetails, null, 2));
+    
+    // Отдельно проверим пользователя
+    const userData = user ? { ...user } : null;
+    
+    navigation.navigate('RestaurantDetail', { 
+      restaurant: restaurantDetails, 
+      user: userData 
+    });
   };
 
   // New function to handle restaurant removal

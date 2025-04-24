@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 import FullScreenImageViewer from '../components/FullScreenImageViewer';
 import { useNotifications } from '../context/NotificationContext';
@@ -135,14 +136,41 @@ export default function RestaurantDetailScreen({ route, navigation }) {
             console.log('Image URL:', response.data.image);
           }
           
+          // Убедимся, что все URL фотографий корректны
+          let validatedPhotos = [];
+          if (response.data.photos && Array.isArray(response.data.photos)) {
+            validatedPhotos = response.data.photos.filter(photo => 
+              typeof photo === 'string' && 
+              (photo.startsWith('http://') || photo.startsWith('https://'))
+            );
+            console.log('Validated photos count:', validatedPhotos.length);
+          }
+          
+          // Проверяем основное изображение
+          let validatedImage = response.data.image;
+          if (validatedImage && 
+              typeof validatedImage === 'string' && 
+              !(validatedImage.startsWith('http://') || validatedImage.startsWith('https://'))) {
+            console.log('Invalid main image URL, clearing:', validatedImage);
+            validatedImage = null;
+          }
+          
           // Объединяем полученные данные с начальными данными для заполнения пробелов
           const mergedData = {
             ...initialRestaurant,
             ...response.data,
+            // Используем валидированные фотографии
+            photos: validatedPhotos.length > 0 ? validatedPhotos : initialRestaurant.photos,
+            image: validatedImage || initialRestaurant.image,
             // Убедимся, что ID сохраняется в обоих форматах
             _id: response.data._id || initialRestaurant._id || response.data.place_id || initialRestaurant.place_id,
             place_id: response.data.place_id || initialRestaurant.place_id || response.data._id || initialRestaurant._id
           };
+          
+          console.log('Merged restaurant data:');
+          console.log('- Name:', mergedData.name);
+          console.log('- Photos count:', mergedData.photos ? mergedData.photos.length : 0);
+          console.log('- Has image:', !!mergedData.image);
           
           setRestaurant(mergedData);
           
@@ -194,41 +222,123 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         return uri.startsWith('http://') || uri.startsWith('https://');
       };
       
-      if (restaurant && restaurant.photos && restaurant.photos.length > 0) {
-        // Проверяем, что индекс фото в допустимом диапазоне
+      console.log('Getting photo URL for restaurant:', restaurant?.name);
+      console.log('Photos array:', JSON.stringify(restaurant?.photos));
+      console.log('Main image:', restaurant?.image);
+      
+      // Пытаемся получить фото из различных мест
+      const firstPhoto = restaurant?.photos?.[0];
+      
+      // Проверяем, не является ли фото объектом с полем url или uri
+      if (restaurant?.photos && restaurant.photos.length > 0) {
+        let photoUri = null;
+        
         if (currentPhotoIndex >= 0 && currentPhotoIndex < restaurant.photos.length) {
-          const photoUri = restaurant.photos[currentPhotoIndex];
+          const photo = restaurant.photos[currentPhotoIndex];
+          
+          // Проверяем, является ли фото объектом
+          if (typeof photo === 'object' && photo !== null) {
+            photoUri = photo.url || photo.uri || photo.source;
+          } else {
+            photoUri = photo; // Предполагаем, что это строка
+          }
+          
+          console.log('Selected photo URI (raw):', photoUri);
+          
           if (validateUri(photoUri)) {
             photoUrl = { uri: photoUri };
+            console.log('Valid photo URI found');
           } else {
-            // Если URI невалидный, ищем другие валидные фото
-            const validPhoto = restaurant.photos.find(validateUri);
-            if (validPhoto) {
-              photoUrl = { uri: validPhoto };
-            } else {
-              photoUrl = { uri: 'https://via.placeholder.com/400x300?text=Invalid+Image+URL' };
+            console.log('Invalid photo URI, looking for alternatives');
+            
+            // Ищем валидное фото среди других фото
+            let foundValidPhoto = false;
+            for (let i = 0; i < restaurant.photos.length; i++) {
+              const altPhoto = restaurant.photos[i];
+              let altUri = null;
+              
+              if (typeof altPhoto === 'object' && altPhoto !== null) {
+                altUri = altPhoto.url || altPhoto.uri || altPhoto.source;
+              } else {
+                altUri = altPhoto;
+              }
+              
+              if (validateUri(altUri)) {
+                photoUrl = { uri: altUri };
+                console.log('Found alternative valid photo:', altUri);
+                foundValidPhoto = true;
+                break;
+              }
+            }
+            
+            if (!foundValidPhoto) {
+              // Проверяем основное изображение
+              if (validateUri(restaurant.image)) {
+                photoUrl = { uri: restaurant.image };
+                console.log('Using main image instead:', restaurant.image);
+              } else {
+                photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Valid+Image' };
+                console.log('No valid photos found, using placeholder');
+              }
             }
           }
         } else {
-          // Если индекс некорректный, используем первое фото
-          if (validateUri(restaurant.photos[0])) {
-            photoUrl = { uri: restaurant.photos[0] };
+          console.log('Photo index out of range, using fallback');
+          if (validateUri(restaurant.image)) {
+            photoUrl = { uri: restaurant.image };
+            console.log('Using main image as fallback');
+          } else if (restaurant.photos.length > 0) {
+            // Ищем любое валидное фото
+            let foundValidPhoto = false;
+            for (let i = 0; i < restaurant.photos.length; i++) {
+              const altPhoto = restaurant.photos[i];
+              let altUri = null;
+              
+              if (typeof altPhoto === 'object' && altPhoto !== null) {
+                altUri = altPhoto.url || altPhoto.uri || altPhoto.source;
+              } else {
+                altUri = altPhoto;
+              }
+              
+              if (validateUri(altUri)) {
+                photoUrl = { uri: altUri };
+                console.log('Found valid photo at index', i, altUri);
+                foundValidPhoto = true;
+                break;
+              }
+            }
+            
+            if (!foundValidPhoto) {
+              photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Valid+Images' };
+            }
           } else {
-            photoUrl = { uri: 'https://via.placeholder.com/400x300?text=Invalid+Image+URL' };
+            photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Images' };
           }
         }
       } else if (restaurant && restaurant.image) {
-        if (validateUri(restaurant.image)) {
-          photoUrl = { uri: restaurant.image };
+        // Проверяем, не является ли image объектом с полем url или uri
+        let imageUri = null;
+        
+        if (typeof restaurant.image === 'object' && restaurant.image !== null) {
+          imageUri = restaurant.image.url || restaurant.image.uri || restaurant.image.source;
+        } else {
+          imageUri = restaurant.image;
+        }
+        
+        if (validateUri(imageUri)) {
+          photoUrl = { uri: imageUri };
+          console.log('Using main image (validated):', imageUri);
         } else {
           photoUrl = { uri: 'https://via.placeholder.com/400x300?text=Invalid+Image+URL' };
+          console.log('Main image invalid, using placeholder');
         }
       } else {
         // Если нет фото, используем заполнитель
         photoUrl = { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
+        console.log('No images available, using placeholder');
       }
       
-      console.log('Photo URL:', JSON.stringify(photoUrl));
+      console.log('Final photo URL:', JSON.stringify(photoUrl));
       return photoUrl;
     } catch (error) {
       console.error('Error getting photo URL:', error);
@@ -386,43 +496,71 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const fetchMatchedFriends = async () => {
     try {
       setLoadingMatches(true);
-      const restaurantId = initialRestaurant.place_id || initialRestaurant._id;
+      console.log('Fetching matched friends for restaurant:', restaurant?.name);
+      console.log('User:', user?._id);
+      
+      const restaurantId = restaurant?.place_id || restaurant?._id;
+      if (!restaurantId) {
+        console.error('No restaurant ID found');
+        setLoadingMatches(false);
+        return;
+      }
+      
+      if (!user || !user._id) {
+        console.error('No user data available');
+        setLoadingMatches(false);
+        return;
+      }
       
       const apiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/matches/${user._id}/${restaurantId}` 
         : `http://192.168.0.82:5001/api/matches/${user._id}/${restaurantId}`;
       
+      console.log('Fetching matches from URL:', apiUrl);
+      
       const response = await axios.get(apiUrl);
+      console.log('Matches response:', JSON.stringify(response.data));
       
       if (response.data && response.data.matches && response.data.matches.length > 0) {
+        console.log('Found matches:', response.data.matches.length);
+        
         // Получаем информацию о пользователях
         const friendsApiUrl = Platform.OS === 'web' 
           ? `http://localhost:5001/api/users/status` 
           : `http://192.168.0.82:5001/api/users/status`;
         
+        console.log('Fetching friend statuses from:', friendsApiUrl);
+        
         const friendsResponse = await axios.post(friendsApiUrl, { 
           userIds: response.data.matches 
         });
+        
+        console.log('Friend statuses received:', JSON.stringify(friendsResponse.data));
         
         // Объединяем информацию о пользователях со статусами
         const usersApiUrl = Platform.OS === 'web' 
           ? `http://localhost:5001/api/users/${user._id}/friends` 
           : `http://192.168.0.82:5001/api/users/${user._id}/friends`;
         
+        console.log('Fetching friends from:', usersApiUrl);
+        
         const usersResponse = await axios.get(usersApiUrl);
+        console.log('Friends list received, count:', usersResponse.data?.length);
         
         // Формируем список друзей с их статусами
         const friendsWithStatus = response.data.matches.map(friendId => {
-          const friendData = usersResponse.data.find(u => u._id === friendId) || { 
+          const friendData = usersResponse.data?.find(u => u._id === friendId) || { 
             _id: friendId, 
             name: 'Unknown User', 
             username: 'unknown' 
           };
           
-          const friendStatus = friendsResponse.data.find(s => s.userId === friendId) || {
+          const friendStatus = friendsResponse.data?.find(s => s.userId === friendId) || {
             isOnline: false,
             lastSwipedAt: null
           };
+          
+          console.log(`Friend: ${friendData.name}, isOnline: ${friendStatus.isOnline}`);
           
           return {
             ...friendData,
@@ -430,11 +568,13 @@ export default function RestaurantDetailScreen({ route, navigation }) {
           };
         });
         
+        console.log('Final matched friends list:', JSON.stringify(friendsWithStatus));
         setMatchedFriends(friendsWithStatus);
         
         // Обновляем статус пользователя (есть совпадения)
         updateUserMatchStatus(true);
       } else {
+        console.log('No matches found for this restaurant');
         setMatchedFriends([]);
         // Обновляем статус пользователя (нет совпадений)
         updateUserMatchStatus(false);
@@ -450,10 +590,13 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   // Обновить статус пользователя (наличие совпадений)
   const updateUserMatchStatus = async (hasMatches) => {
     try {
+      if (!user || !user._id) return;
+      
       const statusApiUrl = Platform.OS === 'web' 
         ? `http://localhost:5001/api/users/${user._id}/status` 
         : `http://192.168.0.82:5001/api/users/${user._id}/status`;
         
+      console.log(`Updating user match status: hasMatches=${hasMatches}`);
       await axios.put(statusApiUrl, { hasMatches });
     } catch (error) {
       console.error('Error updating match status:', error);
@@ -527,28 +670,67 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     </TouchableOpacity>
   );
   
-  // Обновляем интерфейс добавляя кнопку для приглашения друга
+  // Обновляем интерфейс добавляя кнопки для приглашения друга
   const renderActionButtons = () => (
-    <View style={styles.actionButtonsContainer}>
-      <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
-        <Ionicons name="call" size={24} color={COLORS.primary} />
-        <Text style={styles.actionButtonText}>Call</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.actionButton} onPress={getDirections}>
-        <Ionicons name="navigate" size={24} color={COLORS.primary} />
-        <Text style={styles.actionButtonText}>Directions</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.actionButton} onPress={visitWebsite}>
-        <Ionicons name="globe" size={24} color={COLORS.primary} />
-        <Text style={styles.actionButtonText}>Website</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.actionButton} onPress={inviteFriend}>
-        <Ionicons name="person-add" size={24} color={COLORS.primary} />
-        <Text style={styles.actionButtonText}>Invite</Text>
-      </TouchableOpacity>
+    <View style={styles.allActionsContainer}>
+      {/* Верхний ряд основных кнопок: Reserve, Save, Share */}
+      <View style={styles.mainActionsRow}>
+        <TouchableOpacity style={styles.primaryActionButton} onPress={makeReservation}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons name="calendar-outline" size={28} color={COLORS.text.inverse} />
+          </View>
+          <Text style={styles.primaryActionText}>Reserve</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons 
+              name={isLiked ? "heart" : "heart-outline"} 
+              size={24} 
+              color={isLiked ? COLORS.error : COLORS.primary} 
+            />
+          </View>
+          <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
+          </View>
+          <Text style={styles.actionText}>Share</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Второй ряд кнопок: Call, Directions, Website, Invite */}
+      <View style={styles.secondaryActionsRow}>
+        <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons name="call" size={24} color={COLORS.primary} />
+          </View>
+          <Text style={styles.actionText}>Call</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionButton} onPress={getDirections}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons name="navigate" size={24} color={COLORS.primary} />
+          </View>
+          <Text style={styles.actionText}>Directions</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionButton} onPress={visitWebsite}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons name="globe" size={24} color={COLORS.primary} />
+          </View>
+          <Text style={styles.actionText}>Website</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionButton} onPress={inviteFriend}>
+          <View style={styles.buttonIconContainer}>
+            <Ionicons name="person-add" size={24} color={COLORS.primary} />
+          </View>
+          <Text style={styles.actionText}>Invite</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -654,11 +836,19 @@ export default function RestaurantDetailScreen({ route, navigation }) {
               <Image 
                 source={getPhotoUrl()} 
                 style={styles.headerImage}
-                onLoadStart={() => setImageLoading(true)}
-                onLoadEnd={() => setImageLoading(false)}
+                onLoadStart={() => {
+                  console.log('Image load started');
+                  setImageLoading(true);
+                }}
+                onLoadEnd={() => {
+                  console.log('Image load ended');
+                  setImageLoading(false);
+                }}
                 onError={(e) => {
                   console.error('Error loading image:', e.nativeEvent.error);
                   setImageLoading(false);
+                  // При ошибке загрузки показываем заполнитель
+                  Alert.alert('Image Error', 'Failed to load restaurant image. Using placeholder image instead.');
                 }}
               />
             </TouchableOpacity>
@@ -743,27 +933,65 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         )}
         
         {/* Action Buttons */}
-        <View style={styles.actionContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={makeReservation}>
-            <Ionicons name="calendar-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.actionText}>Reserve</Text>
-          </TouchableOpacity>
-          
-          {renderActionButtons()}
-          
-          <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
-            <Ionicons 
-              name={isLiked ? "heart" : "heart-outline"} 
-              size={24} 
-              color={isLiked ? COLORS.error : COLORS.primary} 
-            />
-            <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
-            <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.actionText}>Share</Text>
-          </TouchableOpacity>
+        <View style={styles.allActionsContainer}>
+          {/* Верхний ряд основных кнопок: Reserve, Save, Share */}
+          <View style={styles.mainActionsRow}>
+            <TouchableOpacity style={styles.primaryActionButton} onPress={makeReservation}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="calendar-outline" size={28} color={COLORS.text.inverse} />
+              </View>
+              <Text style={styles.primaryActionText}>Reserve</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons 
+                  name={isLiked ? "heart" : "heart-outline"} 
+                  size={24} 
+                  color={isLiked ? COLORS.error : COLORS.primary} 
+                />
+              </View>
+              <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.actionText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Второй ряд кнопок: Call, Directions, Website, Invite */}
+          <View style={styles.secondaryActionsRow}>
+            <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="call" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.actionText}>Call</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={getDirections}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="navigate" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.actionText}>Directions</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={visitWebsite}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="globe" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.actionText}>Website</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={inviteFriend}>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="person-add" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.actionText}>Invite</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
         {/* Description */}
@@ -902,7 +1130,10 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         <FullScreenImageViewer
           visible={fullScreenVisible}
           imageUri={getPhotoUrl().uri}
-          onClose={() => setFullScreenVisible(false)}
+          onClose={() => {
+            console.log('Closing fullscreen image viewer');
+            setFullScreenVisible(false);
+          }}
         />
       )}
       
@@ -1072,18 +1303,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionContainer: {
+    flex: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SIZES.padding.lg,
+    marginHorizontal: SIZES.padding.sm,
   },
   actionButton: {
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SIZES.padding.sm,
+    minWidth: 70,
   },
   actionText: {
     ...FONTS.caption,
     color: COLORS.text.secondary,
     marginTop: SIZES.padding.xs,
+    height: 20,
+    textAlign: 'center',
   },
   sectionContainer: {
     marginBottom: SIZES.padding.lg,
@@ -1311,5 +1547,61 @@ const styles = StyleSheet.create({
   },
   loading: {
     padding: SIZES.padding.xl,
+  },
+  allActionsContainer: {
+    marginVertical: SIZES.padding.md,
+  },
+  mainActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.md,
+    paddingHorizontal: SIZES.padding.md,
+    height: 70,
+  },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.md,
+    paddingHorizontal: SIZES.padding.sm,
+    height: 60,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    flex: 1,
+  },
+  secondaryActionButton: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SIZES.padding.sm,
+    minWidth: 70,
+  },
+  primaryActionButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radius.md,
+    padding: SIZES.padding.sm,
+    paddingHorizontal: SIZES.padding.lg,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...SHADOWS.medium,
+    height: '100%',
+    paddingVertical: SIZES.padding.sm,
+    minWidth: 120,
+  },
+  primaryActionText: {
+    ...FONTS.caption,
+    color: COLORS.text.inverse,
+    marginTop: SIZES.padding.xs,
+    fontWeight: 'bold',
+    height: 20,
+    textAlign: 'center',
+  },
+  buttonIconContainer: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 }); 

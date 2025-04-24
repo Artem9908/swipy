@@ -293,10 +293,16 @@ export default function FriendsScreen({ navigation, route }) {
     if (!shareData) return;
     
     try {
-      console.log('Sharing with friend ID:', friendId, 'Data:', shareData);
+      console.log('Sharing with friend ID:', friendId, 'Data:', JSON.stringify(shareData));
       
       // Show a brief tap indicator
       const friend = friends.find(f => f._id === friendId);
+      if (!friend) {
+        console.error('Friend not found with ID:', friendId);
+        Alert.alert('Error', 'Friend not found');
+        return;
+      }
+      
       const friendName = friend ? (friend.name || friend.username) : 'selected friend';
       
       Alert.alert(
@@ -306,17 +312,31 @@ export default function FriendsScreen({ navigation, route }) {
         { cancelable: false }
       );
       
+      // Подготовим данные о ресторане (restaurant) для передачи в чат
+      const enhancedShareData = {
+        ...shareData,
+        friendId: friendId,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Добавляем поле для изображения ресторана, если его нет
+      if (shareData.type === 'restaurant' && !enhancedShareData.restaurantImage && shareData.restaurant) {
+        if (shareData.restaurant.image) {
+          enhancedShareData.restaurantImage = shareData.restaurant.image;
+        } else if (shareData.restaurant.photos && shareData.restaurant.photos.length > 0) {
+          enhancedShareData.restaurantImage = shareData.restaurant.photos[0];
+        }
+      }
+      
+      console.log('Enhanced share data:', JSON.stringify(enhancedShareData));
+      
       // Small delay to let the user see the notification
       setTimeout(() => {
         // Navigate to chat screen with the selected friend
         navigation.navigate('Chat', { 
           user,
-          friend: friends.find(f => f._id === friendId), // Pass the entire friend object
-          shareData: {
-            ...shareData,
-            friendId: friendId, // Add the friend ID to the share data
-            timestamp: new Date().toISOString()
-          }
+          friend: friend, // Pass the entire friend object
+          shareData: enhancedShareData
         });
       }, 300);
       

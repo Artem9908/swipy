@@ -38,15 +38,33 @@ export default function ChatScreen({ route, navigation }) {
 
   useEffect(() => {
     console.log('Chat screen mounted, user:', user);
-    console.log('Route params:', route.params);
+    console.log('Route params:', JSON.stringify(route.params));
     
     // Set active restaurant if this is a restaurant match chat
-    if (shareData && (shareData.type === 'restaurant_match' || shareData.type === 'restaurant')) {
-      setActiveRestaurant({
-        id: shareData.restaurantId,
-        name: shareData.restaurantName,
-        image: shareData.restaurantImage
-      });
+    if (shareData) {
+      console.log('Share data detected:', JSON.stringify(shareData));
+      
+      if (shareData.type === 'restaurant_match' || shareData.type === 'restaurant') {
+        console.log('Setting active restaurant from share data');
+        
+        const restaurantImage = shareData.restaurantImage || 
+                            (shareData.restaurant && shareData.restaurant.image) || 
+                            (shareData.restaurant && shareData.restaurant.photos && 
+                             shareData.restaurant.photos.length > 0 && 
+                             shareData.restaurant.photos[0]);
+                             
+        setActiveRestaurant({
+          id: shareData.restaurantId,
+          name: shareData.restaurantName,
+          image: restaurantImage
+        });
+        
+        console.log('Active restaurant set:', {
+          id: shareData.restaurantId,
+          name: shareData.restaurantName,
+          image: restaurantImage
+        });
+      }
     }
     
     // Проверка наличия данных о пользователе
@@ -82,6 +100,18 @@ export default function ChatScreen({ route, navigation }) {
     // Сначала загружаем друзей, затем чаты
     const loadInitialData = async () => {
       try {
+        // Если friend уже передан в параметрах, устанавливаем его немедленно
+        if (friend) {
+          console.log('Friend object already provided in route params:', friend.name || friend.username);
+          setSelectedFriend(friend);
+          // Все равно загружаем список друзей для полноты данных
+          await fetchFriends();
+          // Загружаем сообщения для выбранного друга
+          await fetchMessages(false);
+          setLoading(false);
+          return;
+        }
+        
         const friendsList = await fetchFriends();
         console.log('Friends loaded initially:', friendsList);
         
@@ -103,6 +133,7 @@ export default function ChatScreen({ route, navigation }) {
           } else {
             console.log('Friend not found in the list, friendId:', shareData.friendId);
             setError('Could not find the selected friend');
+            setLoading(false); // Важно: отключаем загрузку при ошибке
           }
         } 
         // Если friendId передан напрямую (например, из уведомления)
@@ -117,9 +148,14 @@ export default function ChatScreen({ route, navigation }) {
             console.log('Friend not found in the list, getting details');
             // Пытаемся получить данные о друге
             await fetchFriendDetails(route.params.friendId);
+            if (!selectedFriend) {
+              setLoading(false); // Важно: отключаем загрузку если друг не найден
+            }
           }
         } else {
           await fetchMessages();
+          // Поскольку нет выбранного друга, явно отключаем индикатор загрузки
+          setLoading(false);
         }
       } catch (err) {
         console.error('Failed to load initial data:', err);
@@ -256,11 +292,17 @@ export default function ChatScreen({ route, navigation }) {
         hasSelectedFriend: !!selectedFriend, 
         hasUser: !!user 
       });
+      setLoading(false); // Явно отключаем индикатор загрузки
       return;
     }
     
     try {
-      console.log('Sending share message for restaurant:', shareData.restaurantName, 'Type:', shareData.type);
+      console.log('Sending share message for restaurant:', shareData);
+      
+      // Получаем имя ресторана из разных возможных источников
+      const restaurantName = shareData.restaurantName || 
+                           (shareData.restaurant && shareData.restaurant.name) || 
+                           'this restaurant';
       
       // Формируем сообщение в зависимости от типа данных
       let message = '';
@@ -268,10 +310,12 @@ export default function ChatScreen({ route, navigation }) {
       if (shareData.message) {
         message = shareData.message;
       } else if (shareData.type === 'tournament_winner' || shareData.type === 'final_choice') {
-        message = `I'd like to go to ${shareData.restaurantName}! Would you like to join me?`;
+        message = `I'd like to go to ${restaurantName}! Would you like to join me?`;
       } else {
-        message = `Hi! Check out this restaurant: ${shareData.restaurantName}. I think you'll like it!`;
+        message = `Hi! Check out this restaurant: ${restaurantName}. I think you'll like it!`;
       }
+      
+      console.log('Prepared message:', message);
       
       const apiUrl = Platform.OS === 'web' 
         ? 'http://localhost:5001/api/chat' 
@@ -304,13 +348,18 @@ export default function ChatScreen({ route, navigation }) {
       // Показываем уведомление пользователю
       Alert.alert(
         'Success!',
-        `Message about ${shareData.restaurantName} restaurant has been sent`,
+        `Message about ${restaurantName} has been sent`,
         [{ text: 'OK' }],
         { cancelable: true }
       );
+      
+      // Явно отключаем индикатор загрузки после успешной отправки
+      setLoading(false);
     } catch (e) {
       console.error('Error sending share message:', e);
       Alert.alert('Error', 'Failed to send restaurant message');
+      // Явно отключаем индикатор загрузки в случае ошибки
+      setLoading(false);
     }
   };
 
@@ -348,12 +397,45 @@ export default function ChatScreen({ route, navigation }) {
         ? `http://localhost:5001/api/users/${user._id}/matches` 
         : `http://192.168.0.82:5001/api/users/${user._id}/matches`;
         
+      console.log(`Fetching matches from: ${apiUrl}`);
       const res = await axios.get(apiUrl);
-      console.log('Fetched matches:', res.data);
-      setMatches(res.data);
+      console.log('Fetched matches:', JSON.stringify(res.data));
+      
+      if (Array.isArray(res.data)) {
+        // Убедимся, что у каждого матча есть все необходимые поля
+        const validatedMatches = res.data.filter(match => 
+          match && match.friendId && match.restaurantId && match.restaurantName
+        );
+        
+        console.log(`Validated matches: ${validatedMatches.length}`);
+        setMatches(validatedMatches);
+      } else {
+        console.error('Invalid matches data format, expected array:', res.data);
+        setMatches([]);
+      }
     } catch (e) {
       console.error('Error fetching matches:', e);
+      setMatches([]);
     }
+  };
+
+  const getMatchedRestaurants = (friendId) => {
+    if (!friendId || !matches || !Array.isArray(matches)) {
+      console.log(`No matched restaurants for friend: ${friendId}`);
+      return [];
+    }
+    
+    const friendMatches = matches.filter(match => match.friendId === friendId);
+    console.log(`Found ${friendMatches.length} matched restaurants for friend: ${friendId}`);
+    
+    // Выведем список ресторанов для отладки
+    if (friendMatches.length > 0) {
+      friendMatches.forEach((match, index) => {
+        console.log(`Match ${index + 1}: ${match.restaurantName} (${match.restaurantId})`);
+      });
+    }
+    
+    return friendMatches;
   };
 
   // Функция для создания и сохранения уведомления
@@ -487,6 +569,11 @@ export default function ChatScreen({ route, navigation }) {
         // Если нет выбранного друга, загружаем список друзей с последними сообщениями
         console.log('No selected friend, loading friend list');
         setMessages([]);
+        
+        // Важно: сбрасываем состояние загрузки, даже если друг не выбран
+        if (showLoading) {
+          setLoading(false);
+        }
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -584,11 +671,11 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   const selectFriend = (friend) => {
+    console.log('Selecting friend:', friend.name || friend.username);
     setSelectedFriend(friend);
-  };
-
-  const getMatchedRestaurants = (friendId) => {
-    return matches.filter(match => match.friendId === friendId);
+    
+    // Запускаем загрузку сообщений, но не отображаем полный загрузочный экран
+    fetchMessages(false);
   };
 
   const formatTime = (dateString) => {
@@ -685,6 +772,10 @@ export default function ChatScreen({ route, navigation }) {
                 !msg.read
               );
               
+              // Получаем совпадения ресторанов для этого друга
+              const friendMatchedRestaurants = getMatchedRestaurants(item._id);
+              const hasMatches = friendMatchedRestaurants.length > 0;
+              
               return (
                 <TouchableOpacity
                   style={[
@@ -714,9 +805,9 @@ export default function ChatScreen({ route, navigation }) {
                   {hasUnread && (
                     <View style={styles.unreadBadge} />
                   )}
-                  {getMatchedRestaurants(item._id).length > 0 && (
+                  {hasMatches && (
                     <View style={styles.matchBadge}>
-                      <Text style={styles.matchCount}>{getMatchedRestaurants(item._id).length}</Text>
+                      <Text style={styles.matchCount}>{friendMatchedRestaurants.length}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1153,15 +1244,19 @@ const styles = StyleSheet.create({
     right: -5,
     backgroundColor: COLORS.secondary,
     borderRadius: SIZES.radius.round,
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
+    ...SHADOWS.small,
   },
   matchCount: {
     ...FONTS.caption,
     fontWeight: 'bold',
     color: COLORS.text.inverse,
+    fontSize: 12,
   },
   messagesContainer: {
     flex: 1,

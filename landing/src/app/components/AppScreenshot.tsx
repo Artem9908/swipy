@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { Icons } from './Icons';
 
 export default function AppScreenshot() {
   return (
@@ -9,9 +10,9 @@ export default function AppScreenshot() {
         <div className="h-8 bg-[#333333] flex items-center justify-between px-4">
           <span className="text-white text-sm">9:41</span>
           <div className="flex items-center gap-2">
-            <span className="text-white text-sm">📶</span>
-            <span className="text-white text-sm">📡</span>
-            <span className="text-white text-sm">🔋</span>
+            <Icons.Wifi className="w-4 h-4 text-white" />
+            <Icons.Signal className="w-4 h-4 text-white" />
+            <Icons.Battery className="w-4 h-4 text-white" />
           </div>
         </div>
 
@@ -21,14 +22,14 @@ export default function AppScreenshot() {
           <div className="h-16 bg-white border-b border-[#f0f0f0] flex items-center justify-between px-4">
             <h1 className="text-xl font-bold text-[#333333]">Discover</h1>
             <button className="w-8 h-8 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-              <span className="text-[#4CAF50]">⚙️</span>
+              <Icons.Settings className="w-4 h-4 text-[#4CAF50]" />
             </button>
           </div>
 
           {/* Restaurant cards */}
           <div className="p-4 space-y-4">
             {/* Card 1 */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform">
               <div className="relative h-48">
                 <Image
                   src="https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
@@ -45,14 +46,14 @@ export default function AppScreenshot() {
               <div className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex gap-2">
-                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                      <span className="text-[#4CAF50]">✕</span>
+                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center hover:bg-[#4CAF50] hover:text-white transition-colors">
+                      <Icons.X className="w-6 h-6 text-[#4CAF50]" />
                     </button>
-                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                      <span className="text-[#4CAF50]">♥</span>
+                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center hover:bg-[#4CAF50] hover:text-white transition-colors">
+                      <Icons.Heart className="w-6 h-6 text-[#4CAF50]" />
                     </button>
                   </div>
-                  <button className="px-4 py-2 bg-[#4CAF50] text-white rounded-full text-sm font-semibold">
+                  <button className="px-4 py-2 bg-[#4CAF50] text-white rounded-full text-sm font-semibold hover:bg-[#388E3C] transition-colors">
                     View Details
                   </button>
                 </div>
@@ -60,7 +61,7 @@ export default function AppScreenshot() {
             </div>
 
             {/* Card 2 */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform">
               <div className="relative h-48">
                 <Image
                   src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
@@ -77,14 +78,14 @@ export default function AppScreenshot() {
               <div className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex gap-2">
-                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                      <span className="text-[#4CAF50]">✕</span>
+                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center hover:bg-[#4CAF50] hover:text-white transition-colors">
+                      <Icons.X className="w-6 h-6 text-[#4CAF50]" />
                     </button>
-                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                      <span className="text-[#4CAF50]">♥</span>
+                    <button className="w-12 h-12 rounded-full bg-[#E8F5E9] flex items-center justify-center hover:bg-[#4CAF50] hover:text-white transition-colors">
+                      <Icons.Heart className="w-6 h-6 text-[#4CAF50]" />
                     </button>
                   </div>
-                  <button className="px-4 py-2 bg-[#4CAF50] text-white rounded-full text-sm font-semibold">
+                  <button className="px-4 py-2 bg-[#4CAF50] text-white rounded-full text-sm font-semibold hover:bg-[#388E3C] transition-colors">
                     View Details
                   </button>
                 </div>

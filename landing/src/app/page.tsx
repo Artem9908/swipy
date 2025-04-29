@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from "next/image";
 import Link from "next/link";
 import AppScreenshot from './components/AppScreenshot';
@@ -11,6 +11,11 @@ export default function Home() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,24 +73,28 @@ export default function Home() {
       <section className="container mx-auto px-4 pt-32 pb-20 text-center">
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/20 to-[#8BC34A]/20 blur-3xl -z-10" />
-          <h1 className="text-6xl font-bold mb-6 text-[#333333]">
+          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20 -z-10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#4CAF50]/5 to-transparent -z-10" />
+          <h1 className="text-7xl font-bold mb-6 text-[#333333] animate-fade-in bg-clip-text text-transparent bg-gradient-to-r from-[#4CAF50] to-[#8BC34A]">
             Swipe. Match. Eat.
           </h1>
-          <p className="text-xl text-[#666666] mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-[#666666] mb-8 max-w-2xl mx-auto animate-fade-in-delay">
             Like Tinder, but for choosing restaurants with friends. Swipe restaurants, find matches, and go eat together
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay-2">
             <button 
               onClick={() => setShowModal(true)}
-              className="bg-[#4CAF50] text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#388E3C] transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="bg-[#4CAF50] text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#388E3C] transition-all shadow-lg hover:shadow-xl transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group"
             >
-              Get Early Access
+              <span className="relative z-10">Get Early Access</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50] to-[#8BC34A] opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <button 
               onClick={() => window.scrollTo({ top: document.getElementById('features')?.offsetTop || 0, behavior: 'smooth' })}
-              className="border-2 border-[#4CAF50] text-[#4CAF50] px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#E8F5E9] transition-colors transform hover:scale-105"
+              className="border-2 border-[#4CAF50] text-[#4CAF50] px-8 py-4 rounded-full text-lg font-semibold hover:bg-[#E8F5E9] transition-all transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group"
             >
-              Learn More
+              <span className="relative z-10">Learn More</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/10 to-[#8BC34A]/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           </div>
         </div>
@@ -95,26 +104,35 @@ export default function Home() {
       <section id="features" className="container mx-auto px-4 py-20">
         <h2 className="text-4xl font-bold text-center mb-16 text-[#333333]">Why Choose Swipy?</h2>
         <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow border border-[#f0f0f0] transform hover:scale-105">
-            <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mb-6">
-              <Icons.Target className="text-[#4CAF50]" />
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-[#f0f0f0] transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/5 to-[#8BC34A]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mb-6">
+                <Icons.Target className="text-[#4CAF50]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#333333]">Smart Matching</h3>
+              <p className="text-[#666666]">Find restaurants that everyone in your group will love</p>
             </div>
-            <h3 className="text-xl font-semibold mb-3 text-[#333333]">Smart Matching</h3>
-            <p className="text-[#666666]">Find restaurants that everyone in your group will love</p>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow border border-[#f0f0f0] transform hover:scale-105">
-            <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mb-6">
-              <Icons.Lightning className="text-[#4CAF50]" />
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-[#f0f0f0] transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/5 to-[#8BC34A]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mb-6">
+                <Icons.Lightning className="text-[#4CAF50]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#333333]">Quick Decisions</h3>
+              <p className="text-[#666666]">No more endless debates about where to eat</p>
             </div>
-            <h3 className="text-xl font-semibold mb-3 text-[#333333]">Quick Decisions</h3>
-            <p className="text-[#666666]">No more endless debates about where to eat</p>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow border border-[#f0f0f0] transform hover:scale-105">
-            <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mb-6">
-              <Icons.Star className="text-[#4CAF50]" />
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-[#f0f0f0] transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/5 to-[#8BC34A]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mb-6">
+                <Icons.Star className="text-[#4CAF50]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#333333]">Discover New Places</h3>
+              <p className="text-[#666666]">Find hidden gems and popular spots in your area</p>
             </div>
-            <h3 className="text-xl font-semibold mb-3 text-[#333333]">Discover New Places</h3>
-            <p className="text-[#666666]">Find hidden gems and popular spots in your area</p>
           </div>
         </div>
       </section>
@@ -123,26 +141,35 @@ export default function Home() {
       <section id="how-it-works" className="container mx-auto px-4 py-20 bg-[#E8F5E9]/50">
         <h2 className="text-4xl font-bold text-center mb-16 text-[#333333]">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-8">
-          <div className="text-center transform hover:scale-105 transition-transform">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <Icons.Users className="text-[#4CAF50]" />
+          <div className="text-center transform hover:scale-105 hover:-translate-y-1 transition-all relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/5 to-[#8BC34A]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Icons.Users className="text-[#4CAF50]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#333333]">Add Friends</h3>
+              <p className="text-[#666666]">Invite your friends to join the app</p>
             </div>
-            <h3 className="text-xl font-semibold mb-3 text-[#333333]">Add Friends</h3>
-            <p className="text-[#666666]">Invite your friends to join the app</p>
           </div>
-          <div className="text-center transform hover:scale-105 transition-transform">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <Icons.Refresh className="text-[#4CAF50]" />
+          <div className="text-center transform hover:scale-105 hover:-translate-y-1 transition-all relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/5 to-[#8BC34A]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Icons.Refresh className="text-[#4CAF50]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#333333]">Swipe Restaurants</h3>
+              <p className="text-[#666666]">Choose places you'd like to try</p>
             </div>
-            <h3 className="text-xl font-semibold mb-3 text-[#333333]">Swipe Restaurants</h3>
-            <p className="text-[#666666]">Choose places you'd like to try</p>
           </div>
-          <div className="text-center transform hover:scale-105 transition-transform">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <Icons.Party className="text-[#4CAF50]" />
+          <div className="text-center transform hover:scale-105 hover:-translate-y-1 transition-all relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50]/5 to-[#8BC34A]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative z-10">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Icons.Party className="text-[#4CAF50]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#333333]">Match & Go!</h3>
+              <p className="text-[#666666]">When you match, it's time to eat!</p>
             </div>
-            <h3 className="text-xl font-semibold mb-3 text-[#333333]">Match & Go!</h3>
-            <p className="text-[#666666]">When you match, it's time to eat!</p>
           </div>
         </div>
       </section>
@@ -202,9 +229,10 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={status === 'loading'}
-                className="bg-[#4CAF50] text-white px-8 py-4 rounded-full font-semibold hover:bg-[#388E3C] transition-colors shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                className="bg-[#4CAF50] text-white px-8 py-4 rounded-full font-semibold hover:bg-[#388E3C] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group"
               >
-                {status === 'loading' ? 'Sending...' : 'Join Waitlist'}
+                <span className="relative z-10">{status === 'loading' ? 'Sending...' : 'Join Waitlist'}</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50] to-[#8BC34A] opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
             {message && (
@@ -264,14 +292,15 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={status === 'loading'}
-                  className="flex-1 bg-[#4CAF50] text-white px-8 py-4 rounded-full font-semibold hover:bg-[#388E3C] transition-colors shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-[#4CAF50] text-white px-8 py-4 rounded-full font-semibold hover:bg-[#388E3C] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 hover:-translate-y-1 relative overflow-hidden group"
                 >
-                  {status === 'loading' ? 'Sending...' : 'Join Waitlist'}
+                  <span className="relative z-10">{status === 'loading' ? 'Sending...' : 'Join Waitlist'}</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#4CAF50] to-[#8BC34A] opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-8 py-4 rounded-full font-semibold border-2 border-[#f0f0f0] hover:border-[#4CAF50] transition-colors"
+                  className="px-8 py-4 rounded-full font-semibold border-2 border-[#f0f0f0] hover:border-[#4CAF50] transition-all transform hover:scale-105 hover:-translate-y-1"
                 >
                   Cancel
                 </button>

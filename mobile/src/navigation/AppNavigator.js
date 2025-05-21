@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
 import axios from 'axios';
-import { Platform, AppState, View, Text } from 'react-native';
+import { Platform, AppState, View, Text, StyleSheet } from 'react-native';
 import { NotificationProvider, useNotifications } from '../context/NotificationContext';
 import NotificationBanner from '../components/NotificationBanner';
 
@@ -33,27 +33,22 @@ const Tab = createBottomTabNavigator();
 // Компонент для отображения счетчика непрочитанных уведомлений
 const TabBarIcon = ({ focused, color, name, badgeCount }) => {
   return (
-    <View>
-      <Ionicons name={name} size={24} color={color} />
+    <View style={styles.tabIconContainer}>
+      <Ionicons 
+        name={name} 
+        size={focused ? 26 : 24} 
+        color={color}
+        style={[
+          styles.tabIcon,
+          focused && styles.tabIconFocused
+        ]} 
+      />
       {badgeCount > 0 && (
-        <View style={{
-          position: 'absolute',
-          top: -6,
-          right: -10,
-          backgroundColor: COLORS.error,
-          borderRadius: 10,
-          minWidth: 18,
-          height: 18,
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingHorizontal: 3,
-        }}>
-          <Text style={{
-            color: '#FFF',
-            fontSize: 10,
-            fontWeight: '600',
-            textAlign: 'center',
-          }}>
+        <View style={[
+          styles.badgeContainer,
+          focused && styles.badgeContainerFocused
+        ]}>
+          <Text style={styles.badgeText}>
             {badgeCount > 99 ? '99+' : badgeCount}
           </Text>
         </View>
@@ -191,24 +186,9 @@ function MainTabs({ route }) {
             } else if (route.name === 'Chat') {
               iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
               return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={0} />;
-            } else if (route.name === 'Reservations') {
-              iconName = focused ? 'calendar' : 'calendar-outline';
-              return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={0} />;
-            } else if (route.name === 'Friends') {
-              iconName = focused ? 'people' : 'people-outline';
-              return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={0} />;
-            } else if (route.name === 'Matches') {
-              iconName = focused ? 'heart' : 'heart-outline';
-              return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={0} />;
             } else if (route.name === 'Profile') {
               iconName = focused ? 'person' : 'person-outline';
-              return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={0} />;
-            } else if (route.name === 'Notifications') {
-              iconName = focused ? 'notifications' : 'notifications-outline';
               return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={unreadCount} />;
-            } else if (route.name === 'Test') {
-              iconName = focused ? 'bug' : 'bug-outline';
-              return <TabBarIcon focused={focused} color={color} name={iconName} badgeCount={0} />;
             }
           },
           tabBarActiveTintColor: COLORS.primary,
@@ -216,67 +196,81 @@ function MainTabs({ route }) {
           tabBarStyle: {
             backgroundColor: COLORS.card,
             borderTopWidth: 0,
-            elevation: 10,
+            elevation: 0,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: -3 },
+            shadowOffset: { width: 0, height: -2 },
             shadowOpacity: 0.1,
             shadowRadius: 3,
+            height: Platform.OS === 'ios' ? 88 : 64,
+            paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+            paddingTop: 8,
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            width: '100%',
           },
           tabBarLabelStyle: {
             ...FONTS.caption,
+            fontWeight: '500',
+            marginTop: 4,
+            fontSize: 12, // Increased font size since we have fewer tabs
+            letterSpacing: -0.2,
+          },
+          tabBarItemStyle: {
+            paddingVertical: 4,
+            paddingHorizontal: 0,
+            width: 'auto',
+            minWidth: 0,
+            flex: 1,
           },
           headerStyle: {
             backgroundColor: COLORS.primary,
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 0,
           },
           headerTintColor: COLORS.text.inverse,
           headerTitleStyle: {
             ...FONTS.h2,
+            fontWeight: 'bold',
           },
+          headerShadowVisible: false,
         })}
       >
         <Tab.Screen 
           name="Discover" 
           component={RestaurantListScreen}
           initialParams={{ user }}
-          options={{ title: 'Discover' }}
+          options={{ 
+            title: 'Discover',
+            tabBarLabel: 'Discover'
+          }}
         />
         <Tab.Screen 
           name="Chat" 
           component={ChatScreen}
           initialParams={{ user }}
-        />
-        <Tab.Screen 
-          name="Reservations" 
-          component={ReservationsListScreen}
-          initialParams={{ user }}
-        />
-        <Tab.Screen 
-          name="Friends" 
-          component={FriendsScreen}
-          initialParams={{ user }}
-        />
-        <Tab.Screen 
-          name="Matches" 
-          component={MatchesScreen}
-          initialParams={{ user }}
-        />
-        <Tab.Screen 
-          name="Notifications" 
-          component={NotificationsScreen}
-          initialParams={{ user }}
           options={{ 
-            title: 'Уведомления',
-            tabBarBadge: unreadCount > 0 ? unreadCount : null 
+            title: 'Chat',
+            tabBarLabel: 'Chat'
           }}
         />
         <Tab.Screen 
           name="Profile" 
           component={ProfileScreen}
           initialParams={{ user }}
+          options={{ 
+            title: 'Profile',
+            tabBarLabel: 'Profile',
+            tabBarBadge: unreadCount > 0 ? unreadCount : null 
+          }}
         />
       </Tab.Navigator>
       
-      {/* Отображение всплывающего уведомления */}
+      {/* Notification banner */}
       {activeNotification && (
         <NotificationBanner 
           notification={activeNotification}
@@ -304,6 +298,44 @@ const RestaurantDetailWrapper = ({ route, navigation }) => (
     <RestaurantDetailScreen route={route} navigation={navigation} />
   </NotificationProvider>
 );
+
+const styles = StyleSheet.create({
+  tabIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  tabIcon: {
+    transition: 'all 0.2s ease-in-out',
+  },
+  tabIconFocused: {
+    transform: [{ scale: 1.1 }],
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    backgroundColor: COLORS.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: COLORS.card,
+  },
+  badgeContainerFocused: {
+    backgroundColor: COLORS.error,
+    transform: [{ scale: 1.1 }],
+  },
+  badgeText: {
+    color: COLORS.text.inverse,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
 
 export default function AppNavigator() {
   return (

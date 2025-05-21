@@ -672,36 +672,15 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   
   // Обновляем интерфейс добавляя кнопки для приглашения друга
   const renderActionButtons = () => (
-    <View style={styles.allActionsContainer}>
-      {/* Верхний ряд основных кнопок: Reserve, Save, Share */}
-      <View style={styles.mainActionsRow}>
-        <TouchableOpacity style={styles.primaryActionButton} onPress={makeReservation}>
-          <View style={styles.buttonIconContainer}>
-            <Ionicons name="calendar-outline" size={28} color={COLORS.text.inverse} />
-          </View>
-          <Text style={styles.primaryActionText}>Reserve</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
-          <View style={styles.buttonIconContainer}>
-            <Ionicons 
-              name={isLiked ? "heart" : "heart-outline"} 
-              size={24} 
-              color={isLiked ? COLORS.error : COLORS.primary} 
-            />
-          </View>
-          <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
-          <View style={styles.buttonIconContainer}>
-            <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
-          </View>
-          <Text style={styles.actionText}>Share</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Второй ряд кнопок: Call, Directions, Website, Invite */}
+    <View style={styles.actionContainer}>
+      <TouchableOpacity 
+        style={styles.primaryActionButton}
+        onPress={makeReservation}
+      >
+        <Ionicons name="calendar" size={24} color={COLORS.text.inverse} />
+        <Text style={styles.primaryActionText}>Make a Reservation</Text>
+      </TouchableOpacity>
+      
       <View style={styles.secondaryActionsRow}>
         <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
           <View style={styles.buttonIconContainer}>
@@ -829,13 +808,13 @@ export default function RestaurantDetailScreen({ route, navigation }) {
               onPress={() => setFullScreenVisible(true)}
             >
               {imageLoading && (
-                <View style={styles.imagePlaceholder}>
+                <View style={styles.imageLoading}>
                   <ActivityIndicator size="large" color={COLORS.primary} />
                 </View>
               )}
               <Image 
                 source={getPhotoUrl()} 
-                style={styles.headerImage}
+                style={styles.image}
                 onLoadStart={() => {
                   console.log('Image load started');
                   setImageLoading(true);
@@ -933,36 +912,15 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         )}
         
         {/* Action Buttons */}
-        <View style={styles.allActionsContainer}>
-          {/* Верхний ряд основных кнопок: Reserve, Save, Share */}
-          <View style={styles.mainActionsRow}>
-            <TouchableOpacity style={styles.primaryActionButton} onPress={makeReservation}>
-              <View style={styles.buttonIconContainer}>
-                <Ionicons name="calendar-outline" size={28} color={COLORS.text.inverse} />
-              </View>
-              <Text style={styles.primaryActionText}>Reserve</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
-              <View style={styles.buttonIconContainer}>
-                <Ionicons 
-                  name={isLiked ? "heart" : "heart-outline"} 
-                  size={24} 
-                  color={isLiked ? COLORS.error : COLORS.primary} 
-                />
-              </View>
-              <Text style={styles.actionText}>{isLiked ? 'Saved' : 'Save'}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionButton} onPress={shareWithFriend}>
-              <View style={styles.buttonIconContainer}>
-                <Ionicons name="share-social-outline" size={24} color={COLORS.primary} />
-              </View>
-              <Text style={styles.actionText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Второй ряд кнопок: Call, Directions, Website, Invite */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity 
+            style={styles.primaryActionButton}
+            onPress={makeReservation}
+          >
+            <Ionicons name="calendar" size={24} color={COLORS.text.inverse} />
+            <Text style={styles.primaryActionText}>Make a Reservation</Text>
+          </TouchableOpacity>
+          
           <View style={styles.secondaryActionsRow}>
             <TouchableOpacity style={styles.actionButton} onPress={callRestaurant}>
               <View style={styles.buttonIconContainer}>
@@ -1147,16 +1105,308 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  loadingContainer: {
+  scrollView: {
     flex: 1,
+  },
+  imageContainer: {
+    width: '100%',
+    height: height * 0.4, // Increased height for better visibility
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-  loadingText: {
+  photoCounter: {
+    position: 'absolute',
+    bottom: SIZES.padding.md,
+    right: SIZES.padding.md,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: SIZES.padding.sm,
+    paddingVertical: SIZES.padding.xs,
+    borderRadius: SIZES.radius.lg,
+  },
+  photoCounterText: {
+    color: '#fff',
+    ...FONTS.caption,
+    fontWeight: '600',
+  },
+  prevButton: {
+    position: 'absolute',
+    left: SIZES.padding.md,
+    top: '50%',
+    transform: [{ translateY: -20 }],
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+    padding: 10,
+    zIndex: 2,
+  },
+  nextButton: {
+    position: 'absolute',
+    right: SIZES.padding.md,
+    top: '50%',
+    transform: [{ translateY: -20 }],
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+    padding: 10,
+    zIndex: 2,
+  },
+  backButton: {
+    position: 'absolute',
+    top: SIZES.padding.lg,
+    left: SIZES.padding.lg,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+    padding: 12,
+    zIndex: 2,
+  },
+  infoContainer: {
+    padding: SIZES.padding.lg,
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: SIZES.radius.xl,
+    borderTopRightRadius: SIZES.radius.xl,
+    marginTop: -SIZES.radius.xl,
+    position: 'relative',
+    zIndex: 1,
+  },
+  name: {
+    ...FONTS.h1,
+    color: COLORS.text.primary,
+    marginBottom: SIZES.padding.md,
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.lg,
+    flexWrap: 'wrap',
+  },
+  tagContainer: {
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: SIZES.padding.md,
+    paddingVertical: SIZES.padding.sm,
+    borderRadius: SIZES.radius.lg,
+    marginRight: SIZES.padding.sm,
+    marginBottom: SIZES.padding.xs,
+  },
+  tagText: {
+    ...FONTS.body,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '15',
+    paddingHorizontal: SIZES.padding.md,
+    paddingVertical: SIZES.padding.sm,
+    borderRadius: SIZES.radius.lg,
+    marginRight: SIZES.padding.sm,
+  },
+  rating: {
+    ...FONTS.body,
+    color: COLORS.warning,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.lg,
+    marginBottom: SIZES.padding.md,
+  },
+  address: {
     ...FONTS.body,
     color: COLORS.text.primary,
-    marginTop: SIZES.padding.md,
+    marginLeft: SIZES.padding.sm,
+    flex: 1,
+  },
+  hoursContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.lg,
+    marginBottom: SIZES.padding.lg,
+  },
+  hours: {
+    ...FONTS.body,
+    color: COLORS.text.primary,
+    marginLeft: SIZES.padding.sm,
+    flex: 1,
+  },
+  actionContainer: {
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.md,
+    marginBottom: SIZES.padding.lg,
+  },
+  primaryActionButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SIZES.padding.md,
+  },
+  primaryActionText: {
+    ...FONTS.h3,
+    color: COLORS.text.inverse,
+    marginLeft: SIZES.padding.sm,
+  },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  actionButton: {
+    alignItems: 'center',
+    width: '23%',
+    backgroundColor: COLORS.background,
+    padding: SIZES.padding.sm,
+    borderRadius: SIZES.radius.lg,
+  },
+  buttonIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.xs,
+  },
+  actionText: {
+    ...FONTS.caption,
+    color: COLORS.text.primary,
+    textAlign: 'center',
+  },
+  sectionContainer: {
+    backgroundColor: COLORS.card,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.lg,
+    marginBottom: SIZES.padding.lg,
+  },
+  sectionTitle: {
+    ...FONTS.h2,
+    color: COLORS.text.primary,
+    marginBottom: SIZES.padding.md,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  description: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
+    lineHeight: 22,
+  },
+  reviewContainer: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.md,
+    marginBottom: SIZES.padding.md,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.sm,
+  },
+  reviewAuthor: {
+    ...FONTS.body,
+    color: COLORS.text.primary,
+    fontWeight: '600',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewText: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
+    marginBottom: SIZES.padding.sm,
+    lineHeight: 20,
+  },
+  reviewDate: {
+    ...FONTS.caption,
+    color: COLORS.text.light,
+    fontStyle: 'italic',
+  },
+  moreButton: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.md,
+    alignItems: 'center',
+  },
+  moreButtonText: {
+    ...FONTS.body,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  menuCategory: {
+    marginBottom: SIZES.padding.lg,
+  },
+  menuCategoryTitle: {
+    ...FONTS.h3,
+    color: COLORS.text.primary,
+    marginBottom: SIZES.padding.sm,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  menuItem: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.md,
+    marginBottom: SIZES.padding.sm,
+  },
+  menuItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.padding.xs,
+  },
+  menuItemName: {
+    ...FONTS.body,
+    color: COLORS.text.primary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  menuItemPrice: {
+    ...FONTS.body,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginLeft: SIZES.padding.sm,
+  },
+  menuItemDescription: {
+    ...FONTS.caption,
+    color: COLORS.text.secondary,
+  },
+  mapPlaceholder: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 200,
+  },
+  mapText: {
+    ...FONTS.body,
+    color: COLORS.primary,
+    marginTop: SIZES.padding.sm,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,
@@ -1166,32 +1416,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   errorText: {
-    ...FONTS.body,
-    color: COLORS.text.primary,
+    ...FONTS.h3,
+    color: COLORS.error,
     textAlign: 'center',
-    marginVertical: SIZES.padding.md,
+    marginVertical: SIZES.padding.lg,
   },
   retryButton: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: SIZES.padding.lg,
-    paddingVertical: SIZES.padding.sm,
-    borderRadius: SIZES.radius.md,
-    ...SHADOWS.medium,
+    paddingVertical: SIZES.padding.md,
+    borderRadius: SIZES.radius.lg,
   },
   retryButtonText: {
     ...FONTS.body,
     color: COLORS.text.inverse,
-  },
-  imageContainer: {
-    height: height * 0.35,
-    width: width,
-    position: 'relative',
-    backgroundColor: COLORS.background,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    fontWeight: '600',
   },
   noImageContainer: {
     width: '100%',
@@ -1205,185 +1444,56 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     marginTop: SIZES.padding.sm,
   },
-  photoCounter: {
-    position: 'absolute',
-    bottom: SIZES.padding.md,
-    right: SIZES.padding.md,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: SIZES.padding.sm,
-    paddingVertical: SIZES.padding.xs / 2,
-    borderRadius: SIZES.radius.sm,
-  },
-  photoCounterText: {
-    ...FONTS.caption,
-    color: '#fff',
-  },
-  prevButton: {
-    position: 'absolute',
-    left: SIZES.padding.sm,
-    top: '50%',
-    transform: [{ translateY: -20 }],
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
-    padding: 5,
-  },
-  nextButton: {
-    position: 'absolute',
-    right: SIZES.padding.sm,
-    top: '50%',
-    transform: [{ translateY: -20 }],
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
-    padding: 5,
-  },
-  backButton: {
-    position: 'absolute',
-    top: SIZES.padding.md,
-    left: SIZES.padding.md,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
-    padding: 8,
-  },
-  infoContainer: {
-    padding: SIZES.padding.lg,
-  },
-  name: {
-    ...FONTS.h1,
-    color: COLORS.text.primary,
-    marginBottom: SIZES.padding.md,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.padding.md,
-    flexWrap: 'wrap',
-  },
-  tagContainer: {
-    backgroundColor: COLORS.background,
-    paddingHorizontal: SIZES.padding.sm,
-    paddingVertical: SIZES.padding.xs,
-    borderRadius: SIZES.radius.sm,
-    marginRight: SIZES.padding.sm,
-    marginBottom: SIZES.padding.xs,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  tagText: {
-    ...FONTS.caption,
-    color: COLORS.text.secondary,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: SIZES.padding.sm,
-  },
-  rating: {
-    ...FONTS.body,
-    color: COLORS.text.primary,
-    marginLeft: 4,
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    marginBottom: SIZES.padding.md,
-  },
-  address: {
-    ...FONTS.body,
-    color: COLORS.text.secondary,
-    marginLeft: SIZES.padding.sm,
+  loadingContainer: {
     flex: 1,
-  },
-  hoursContainer: {
-    flexDirection: 'row',
-    marginBottom: SIZES.padding.lg,
-  },
-  hours: {
-    ...FONTS.body,
-    color: COLORS.text.secondary,
-    marginLeft: SIZES.padding.sm,
-    flex: 1,
-  },
-  actionContainer: {
-    flex: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: SIZES.padding.sm,
-  },
-  actionButton: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SIZES.padding.sm,
-    minWidth: 70,
-  },
-  actionText: {
-    ...FONTS.caption,
-    color: COLORS.text.secondary,
-    marginTop: SIZES.padding.xs,
-    height: 20,
-    textAlign: 'center',
-  },
-  sectionContainer: {
-    marginBottom: SIZES.padding.lg,
-  },
-  sectionTitle: {
-    ...FONTS.h3,
-    color: COLORS.text.primary,
-    marginBottom: SIZES.padding.sm,
-  },
-  description: {
-    ...FONTS.body,
-    color: COLORS.text.secondary,
-    lineHeight: 22,
-  },
-  reviewContainer: {
-    marginBottom: SIZES.padding.md,
-    padding: SIZES.padding.md,
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius.md,
-    ...SHADOWS.small,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.padding.xs,
-  },
-  reviewAuthor: {
-    ...FONTS.body,
-    fontWeight: 'bold',
-    color: COLORS.text.primary,
-  },
-  reviewRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  reviewRatingText: {
-    ...FONTS.caption,
-    color: COLORS.text.primary,
-    marginLeft: 4,
-  },
-  reviewText: {
-    ...FONTS.body,
-    color: COLORS.text.secondary,
-  },
-  imagePlaceholder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
-    zIndex: 1
   },
-  matchedFriendsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  loadingText: {
+    ...FONTS.body,
+    color: COLORS.text.primary,
+    marginTop: SIZES.padding.md,
   },
-  matchedFriendItem: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: width * 0.9,
+    maxHeight: height * 0.7,
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius.lg,
+    paddingVertical: SIZES.padding.lg,
+    ...SHADOWS.large,
+  },
+  modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: SIZES.padding.sm,
-    marginBottom: SIZES.padding.sm,
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding.lg,
+    paddingBottom: SIZES.padding.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    ...FONTS.h2,
+    color: COLORS.text.primary,
+  },
+  closeButton: {
+    padding: SIZES.padding.xs,
+  },
+  friendsList: {
+    paddingHorizontal: SIZES.padding.md,
+  },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.padding.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   friendAvatar: {
     width: 50,
@@ -1440,168 +1550,7 @@ const styles = StyleSheet.create({
     ...FONTS.body,
     color: COLORS.text.inverse,
   },
-  menuCategory: {
-    marginBottom: SIZES.padding.md,
-  },
-  menuCategoryTitle: {
-    ...FONTS.h4,
-    color: COLORS.text.primary,
-    marginBottom: SIZES.padding.xs,
-  },
-  menuItem: {
-    marginBottom: SIZES.padding.xs,
-  },
-  menuItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.padding.xs,
-  },
-  menuItemName: {
-    ...FONTS.body,
-    fontWeight: 'bold',
-    color: COLORS.text.primary,
-  },
-  menuItemPrice: {
-    ...FONTS.caption,
-    color: COLORS.text.secondary,
-  },
-  menuItemDescription: {
-    ...FONTS.body,
-    color: COLORS.text.secondary,
-  },
-  mapPlaceholder: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: SIZES.padding.lg,
-  },
-  mapText: {
-    ...FONTS.body,
-    color: COLORS.text.primary,
-    marginTop: SIZES.padding.sm,
-  },
-  moreButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SIZES.padding.lg,
-    paddingVertical: SIZES.padding.sm,
-    borderRadius: SIZES.radius.md,
-    ...SHADOWS.medium,
-  },
-  moreButtonText: {
-    ...FONTS.body,
-    color: COLORS.text.inverse,
-  },
-  reviewDate: {
-    ...FONTS.caption,
-    color: COLORS.text.secondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    width: width * 0.9,
-    maxHeight: height * 0.7,
-    backgroundColor: COLORS.background,
-    borderRadius: SIZES.radius.lg,
-    paddingVertical: SIZES.padding.lg,
-    ...SHADOWS.large,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SIZES.padding.lg,
-    paddingBottom: SIZES.padding.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    ...FONTS.h2,
-    color: COLORS.text.primary,
-  },
-  closeButton: {
-    padding: SIZES.padding.xs,
-  },
-  friendsList: {
-    paddingHorizontal: SIZES.padding.md,
-  },
-  friendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SIZES.padding.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  emptyContainer: {
-    padding: SIZES.padding.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    ...FONTS.body,
-    color: COLORS.text.light,
-    marginTop: SIZES.padding.md,
-    textAlign: 'center',
-  },
   loading: {
     padding: SIZES.padding.xl,
-  },
-  allActionsContainer: {
-    marginVertical: SIZES.padding.md,
-  },
-  mainActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-    marginBottom: SIZES.padding.md,
-    paddingHorizontal: SIZES.padding.md,
-    height: 70,
-  },
-  secondaryActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-    marginBottom: SIZES.padding.md,
-    paddingHorizontal: SIZES.padding.sm,
-    height: 60,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    flex: 1,
-  },
-  secondaryActionButton: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SIZES.padding.sm,
-    minWidth: 70,
-  },
-  primaryActionButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius.md,
-    padding: SIZES.padding.sm,
-    paddingHorizontal: SIZES.padding.lg,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...SHADOWS.medium,
-    height: '100%',
-    paddingVertical: SIZES.padding.sm,
-    minWidth: 120,
-  },
-  primaryActionText: {
-    ...FONTS.caption,
-    color: COLORS.text.inverse,
-    marginTop: SIZES.padding.xs,
-    fontWeight: 'bold',
-    height: 20,
-    textAlign: 'center',
-  },
-  buttonIconContainer: {
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 }); 

@@ -298,6 +298,13 @@ const MainNavigator = ({ route }) => {
   );
 };
 
+// Define RestaurantDetailWrapper component
+const RestaurantDetailWrapper = ({ route, navigation }) => (
+  <NotificationProvider userId={route.params?.user?._id}>
+    <RestaurantDetailScreen route={route} navigation={navigation} />
+  </NotificationProvider>
+);
+
 export default function AppNavigator() {
   return (
     <NavigationContainer>
@@ -330,11 +337,7 @@ export default function AppNavigator() {
         />
         <Stack.Screen 
           name="RestaurantDetail" 
-          component={({ route, navigation }) => (
-            <NotificationProvider userId={route.params?.user?._id}>
-              <RestaurantDetailScreen route={route} navigation={navigation} />
-            </NotificationProvider>
-          )}
+          component={RestaurantDetailWrapper}
           options={({ route }) => ({ 
             headerShown: false,
           })}

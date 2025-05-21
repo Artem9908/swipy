@@ -135,27 +135,10 @@ let friends = [
 ];
 let reviews = {};
 let inviteCodes = [];
-
-// User status tracking with initial values
 let userStatuses = {
-  '1': { 
-    isOnline: true, 
-    lastSeen: new Date(), 
-    lastSwipedAt: new Date().toISOString(), 
-    hasMatches: true 
-  },
-  '2': { 
-    isOnline: false, 
-    lastSeen: new Date(Date.now() - 3 * 60 * 60 * 1000), 
-    lastSwipedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), 
-    hasMatches: false 
-  },
-  '3': { 
-    isOnline: false, 
-    lastSeen: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), 
-    lastSwipedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), 
-    hasMatches: true 
-  }
+  '1': { isOnline: true, lastSeen: new Date(), lastSwipedAt: new Date().toISOString(), hasMatches: true },
+  '2': { isOnline: false, lastSeen: new Date(Date.now() - 3 * 60 * 60 * 1000), lastSwipedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), hasMatches: false },
+  '3': { isOnline: false, lastSeen: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), lastSwipedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), hasMatches: true }
 };
 
 // Array to store users' selected restaurants (final choices)
@@ -167,63 +150,8 @@ let tournamentWinners = [];
 // Array to store users' swipe history
 let swipeHistory = [];
 
-// Endpoint to record a swiped restaurant
-app.post('/api/users/:userId/swiped', (req, res) => {
-  const { userId } = req.params;
-  const { restaurantId, restaurantName, direction } = req.body;
-  
-  console.log(`Recording ${direction} swipe for user ${userId}, restaurant ${restaurantName}`);
-  
-  // Add to swipe history with expiration (24 hours)
-  const swipe = {
-    userId,
-    restaurantId,
-    restaurantName,
-    direction,
-    timestamp: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
-  };
-  
-  swipeHistory.push(swipe);
-  
-  // Update user's lastSwipedAt status
-  if (userStatuses[userId]) {
-    userStatuses[userId].lastSwipedAt = new Date().toISOString();
-  }
-  
-  res.status(201).json(swipe);
-});
-
-// Endpoint to check if a restaurant has been swiped
-app.get('/api/users/:userId/swiped/:restaurantId', (req, res) => {
-  const { userId, restaurantId } = req.params;
-  
-  const now = new Date().toISOString();
-  const isSwiped = swipeHistory.some(
-    swipe => swipe.userId === userId && 
-             swipe.restaurantId === restaurantId && 
-             swipe.expiresAt > now
-  );
-  
-  res.json({ isSwiped });
-});
-
-// Endpoint to clear swipe history for a user
-app.delete('/api/users/:userId/swiped', (req, res) => {
-  const { userId } = req.params;
-  
-  const initialLength = swipeHistory.length;
-  swipeHistory = swipeHistory.filter(swipe => swipe.userId !== userId);
-  
-  const removedCount = initialLength - swipeHistory.length;
-  console.log(`Cleared ${removedCount} swipes for user ${userId}`);
-  
-  res.json({ 
-    success: true, 
-    message: `Cleared ${removedCount} swipes`,
-    count: removedCount
-  });
-});
+// Add user status tracking
+const userStatuses = {};
 
 // Update user online status
 app.put('/api/users/:userId/status', (req, res) => {

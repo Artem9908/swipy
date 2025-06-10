@@ -81,9 +81,7 @@ export default function LoginScreen({ navigation }) {
       console.log('Setting loading state to true');
       setLoading(true);
       
-      const apiUrl = Platform.OS === 'web' 
-        ? `http://localhost:5001/api/users/${isLogin ? 'login' : 'register'}` 
-        : `http://localhost:5001/api/users/${isLogin ? 'login' : 'register'}`;
+      const apiUrl = `${API_URL}/api/users/${isLogin ? 'login' : 'register'}`;
       
       console.log('API URL:', apiUrl);
       

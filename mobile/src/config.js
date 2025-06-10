@@ -1,5 +1,5 @@
 // API URL configuration
-const DEV_API_URL = 'http://localhost:5001';
+const DEV_API_URL = 'http://192.168.0.82:5001';
 const PROD_API_URL = 'https://api.swipy.app'; // Replace with your actual production API URL
 
 // Determine which API URL to use based on the environment

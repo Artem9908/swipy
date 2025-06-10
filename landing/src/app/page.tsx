@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Image from "next/image";
+import { useState } from 'react';
 import Link from "next/link";
 import AppScreenshot from './components/AppScreenshot';
 import { Icons } from './components/Icons';
@@ -11,11 +10,6 @@ export default function Home() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +152,7 @@ export default function Home() {
                 <Icons.Refresh className="text-[#4CAF50]" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-[#333333]">Swipe Restaurants</h3>
-              <p className="text-[#666666]">Choose places you'd like to try</p>
+              <p className="text-[#666666]">Choose places you&apos;d like to try</p>
             </div>
           </div>
           <div className="text-center transform hover:scale-105 hover:-translate-y-1 transition-all relative overflow-hidden group">
@@ -168,7 +162,7 @@ export default function Home() {
                 <Icons.Party className="text-[#4CAF50]" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-[#333333]">Match & Go!</h3>
-              <p className="text-[#666666]">When you match, it's time to eat!</p>
+              <p className="text-[#666666]">When you match, it&apos;s time to eat!</p>
             </div>
           </div>
         </div>

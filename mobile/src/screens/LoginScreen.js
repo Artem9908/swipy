@@ -13,7 +13,8 @@ import {
   Alert,
   SafeAreaView,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -22,6 +23,8 @@ import { API_URL } from '../config';
 
 // Password validation regex
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -235,6 +238,7 @@ export default function LoginScreen({ navigation }) {
                     <TextInput
                       style={styles.input}
                       placeholder="Full Name"
+                      placeholderTextColor={COLORS.text.light}
                       value={name}
                       onChangeText={setName}
                     />
@@ -245,6 +249,7 @@ export default function LoginScreen({ navigation }) {
                     <TextInput
                       style={styles.input}
                       placeholder="Username"
+                      placeholderTextColor={COLORS.text.light}
                       value={username}
                       onChangeText={setUsername}
                       autoCapitalize="none"
@@ -256,6 +261,7 @@ export default function LoginScreen({ navigation }) {
                     <TextInput
                       style={styles.input}
                       placeholder="Email Address"
+                      placeholderTextColor={COLORS.text.light}
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
@@ -271,6 +277,7 @@ export default function LoginScreen({ navigation }) {
                   <TextInput
                     style={styles.input}
                     placeholder="Username or Email"
+                    placeholderTextColor={COLORS.text.light}
                     value={loginIdentifier}
                     onChangeText={(text) => {
                       setLoginIdentifier(text);
@@ -291,6 +298,7 @@ export default function LoginScreen({ navigation }) {
                   ref={(input) => { passwordInput = input; }}
                   style={styles.input}
                   placeholder="Password"
+                  placeholderTextColor={COLORS.text.light}
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -354,10 +362,6 @@ export default function LoginScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
             </View>
-            
-            <Text style={styles.hint}>
-              Try username "artem2" or email "artem@example.com", password "yourpass"
-            </Text>
           </ScrollView>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
@@ -376,99 +380,114 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: SIZES.padding.lg,
-    paddingTop: SIZES.padding.xl,
+    paddingTop: height * 0.05,
     paddingBottom: SIZES.padding.xl,
+    minHeight: height,
   },
   scrollContentKeyboardVisible: {
     paddingBottom: SIZES.padding.md,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: SIZES.padding.xl,
+    marginBottom: height * 0.04,
   },
   logoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.primary + '20',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.green.pale,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SIZES.padding.md,
-    ...SHADOWS.small,
+    marginBottom: SIZES.padding.lg,
+    ...SHADOWS.medium,
   },
   appName: {
-    ...FONTS.h1,
+    fontSize: 32,
+    fontWeight: 'bold',
     color: COLORS.primary,
     marginBottom: SIZES.padding.sm,
+    letterSpacing: 1,
   },
   tagline: {
-    ...FONTS.body,
+    fontSize: 16,
     color: COLORS.text.secondary,
     textAlign: 'center',
+    lineHeight: 22,
   },
   formContainer: {
     backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius.lg,
-    padding: SIZES.padding.lg,
-    ...SHADOWS.medium,
+    borderRadius: SIZES.radius.xl,
+    padding: SIZES.padding.xl,
+    ...SHADOWS.large,
+    marginBottom: SIZES.padding.lg,
   },
   formTitle: {
-    ...FONTS.h2,
+    fontSize: 24,
+    fontWeight: 'bold',
     color: COLORS.text.primary,
-    marginBottom: SIZES.padding.lg,
+    marginBottom: SIZES.padding.xl,
     textAlign: 'center',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: COLORS.border,
-    borderRadius: SIZES.radius.md,
-    marginBottom: SIZES.padding.md,
-    paddingHorizontal: SIZES.padding.md,
+    borderRadius: SIZES.radius.lg,
+    marginBottom: SIZES.padding.lg,
+    paddingHorizontal: SIZES.padding.lg,
     backgroundColor: COLORS.background,
-    height: 56,
+    height: 60,
+    ...SHADOWS.small,
   },
   inputIcon: {
-    marginRight: SIZES.padding.sm,
+    marginRight: SIZES.padding.md,
   },
   input: {
     flex: 1,
     height: '100%',
-    ...FONTS.body,
+    fontSize: 16,
     color: COLORS.text.primary,
     paddingVertical: 0,
+    fontWeight: '500',
   },
   passwordToggle: {
     padding: SIZES.padding.sm,
   },
   errorText: {
-    ...FONTS.small,
+    fontSize: 14,
     color: COLORS.error,
-    marginBottom: SIZES.padding.md,
+    marginBottom: SIZES.padding.lg,
     textAlign: 'center',
+    backgroundColor: COLORS.error + '10',
+    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.md,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.error,
   },
   authButton: {
     backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius.md,
-    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.lg,
     alignItems: 'center',
-    ...SHADOWS.small,
-    height: 56,
+    ...SHADOWS.medium,
+    height: 60,
     justifyContent: 'center',
+    marginBottom: SIZES.padding.md,
   },
   authButtonDisabled: {
     opacity: 0.7,
   },
   authButtonText: {
-    ...FONTS.h3,
+    fontSize: 18,
     color: COLORS.text.inverse,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: SIZES.padding.lg,
+    marginVertical: SIZES.padding.xl,
   },
   divider: {
     flex: 1,
@@ -476,23 +495,25 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
   dividerText: {
-    ...FONTS.small,
+    fontSize: 14,
     color: COLORS.text.secondary,
-    marginHorizontal: SIZES.padding.md,
+    marginHorizontal: SIZES.padding.lg,
+    fontWeight: '500',
   },
   guestButton: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: COLORS.primary,
-    borderRadius: SIZES.radius.md,
-    padding: SIZES.padding.md,
+    borderRadius: SIZES.radius.lg,
+    padding: SIZES.padding.lg,
     alignItems: 'center',
-    height: 56,
+    height: 60,
     justifyContent: 'center',
+    backgroundColor: COLORS.primary + '05',
   },
   guestButtonText: {
-    ...FONTS.body,
+    fontSize: 16,
     color: COLORS.primary,
-    fontWeight: '500',
+    fontWeight: 'bold',
   },
   footer: {
     flexDirection: 'row',
@@ -501,18 +522,12 @@ const styles = StyleSheet.create({
     paddingBottom: SIZES.padding.lg,
   },
   footerText: {
-    ...FONTS.body,
+    fontSize: 16,
     color: COLORS.text.secondary,
   },
   footerLink: {
-    ...FONTS.body,
+    fontSize: 16,
     color: COLORS.primary,
     fontWeight: 'bold',
   },
-  hint: {
-    ...FONTS.small,
-    color: COLORS.text.light,
-    textAlign: 'center',
-    marginTop: SIZES.padding.md,
-  }
 });

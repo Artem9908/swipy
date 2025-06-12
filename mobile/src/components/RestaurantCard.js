@@ -194,11 +194,11 @@ const styles = StyleSheet.create({
     ...SHADOWS.medium,
   },
   likeOverlay: {
-    right: 20,
+    left: 20,
     borderColor: COLORS.success,
   },
   dislikeOverlay: {
-    left: 20,
+    right: 20,
     borderColor: COLORS.error,
   },
   overlayText: {

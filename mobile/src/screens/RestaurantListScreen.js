@@ -534,7 +534,7 @@ export default function RestaurantListScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header - Moved to top with higher zIndex */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Discover</Text>
         <TouchableOpacity style={styles.filterButton} onPress={openFilters}>
@@ -560,18 +560,30 @@ export default function RestaurantListScreen({ navigation, route }) {
           }}
         />
         
-        <View style={styles.swipeButtonsContainer}>
+        {/* Action Buttons - Redesigned for better mobile experience */}
+        <View style={styles.actionButtonsContainer}>
           <TouchableOpacity 
-            style={[styles.swipeButton, styles.dislikeButton]} 
+            style={[styles.actionButton, styles.dislikeButton]} 
             onPress={handleDislike}
+            activeOpacity={0.8}
           >
-            <Ionicons name="close-circle" size={60} color={COLORS.error} />
+            <Ionicons name="close" size={32} color={COLORS.error} />
           </TouchableOpacity>
+          
           <TouchableOpacity 
-            style={[styles.swipeButton, styles.likeButton]} 
-            onPress={handleLike}
+            style={[styles.actionButton, styles.infoButton]} 
+            onPress={() => viewRestaurantDetails(currentRestaurant)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="heart-circle" size={60} color={COLORS.success} />
+            <Ionicons name="information-circle" size={32} color={COLORS.primary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.likeButton]} 
+            onPress={handleLike}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="heart" size={32} color={COLORS.success} />
           </TouchableOpacity>
         </View>
       </View>
@@ -600,26 +612,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SIZES.padding.lg,
-    paddingVertical: SIZES.padding.md,
-    zIndex: 10, // Ensure header is above card
+    paddingVertical: SIZES.padding.sm,
     backgroundColor: COLORS.background,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    ...SHADOWS.small,
   },
   headerTitle: {
-    ...FONTS.h1,
+    fontSize: 24,
+    fontWeight: 'bold',
     color: COLORS.text.primary,
+    letterSpacing: 0.5,
   },
   filterButton: {
-    padding: SIZES.padding.sm,
-    backgroundColor: COLORS.background,
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    backgroundColor: COLORS.primary + '10',
+    justifyContent: 'center',
+    alignItems: 'center',
     ...SHADOWS.small,
   },
   cardContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: SIZES.padding.lg,
-    marginTop: -20, // Pull card up slightly
+    paddingHorizontal: SIZES.padding.md,
+    paddingTop: SIZES.padding.sm,
+    paddingBottom: SIZES.padding.sm,
   },
   noMoreContainer: {
     flex: 1,
@@ -643,7 +663,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SIZES.padding.lg,
+    paddingHorizontal: SIZES.padding.md,
+    paddingVertical: SIZES.padding.sm,
+    marginTop: SIZES.padding.sm,
   },
   refreshButton: {
     backgroundColor: COLORS.primary,
@@ -692,22 +714,28 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginLeft: SIZES.padding.xs,
   },
-  swipeButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '60%',
-    marginBottom: SIZES.padding.xl,
-    position: 'absolute',
-    bottom: 0,
-    zIndex: 5,
-  },
-  swipeButton: {
-    padding: SIZES.padding.sm,
+  actionButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: SIZES.padding.md,
+    ...SHADOWS.medium,
   },
   dislikeButton: {
-    marginRight: SIZES.padding.xl,
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.error,
+  },
+  infoButton: {
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
   },
   likeButton: {
-    marginLeft: SIZES.padding.xl,
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.success,
   }
 });

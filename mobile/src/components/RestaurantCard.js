@@ -149,9 +149,9 @@ export default function RestaurantCard({
 
 const styles = StyleSheet.create({
   card: {
-    width: '100%',
-    height: '100%',
-    borderRadius: SIZES.radius.lg,
+    width: '98%',
+    height: '75%',
+    borderRadius: SIZES.radius.xl,
     backgroundColor: COLORS.card,
     overflow: 'hidden',
     ...SHADOWS.large,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: '65%', // Reduced slightly to make room for more info
+    height: '85%',
     backgroundColor: COLORS.background,
     overflow: 'hidden',
   },
@@ -183,13 +183,15 @@ const styles = StyleSheet.create({
   },
   overlayContainer: {
     position: 'absolute',
-    top: 50,
-    paddingHorizontal: SIZES.padding.lg,
+    top: 20,
+    paddingHorizontal: SIZES.padding.md,
     paddingVertical: SIZES.padding.sm,
-    borderWidth: 3,
+    borderWidth: 4,
     borderRadius: SIZES.radius.md,
-    transform: [{ rotate: '30deg' }],
+    transform: [{ rotate: '-15deg' }],
     zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    ...SHADOWS.medium,
   },
   likeOverlay: {
     right: 20,
@@ -200,16 +202,21 @@ const styles = StyleSheet.create({
     borderColor: COLORS.error,
   },
   overlayText: {
+    fontSize: 24,
     fontWeight: 'bold',
+    letterSpacing: 2,
   },
   infoContainer: {
-    padding: SIZES.padding.lg,
+    padding: SIZES.padding.md,
     flex: 1,
+    backgroundColor: COLORS.card,
   },
   name: {
-    ...FONTS.h2,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: COLORS.text.primary,
-    marginBottom: SIZES.padding.sm,
+    marginBottom: SIZES.padding.xs,
+    letterSpacing: 0.3,
   },
   detailsRow: {
     flexDirection: 'row',

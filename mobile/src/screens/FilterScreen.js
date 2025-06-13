@@ -63,10 +63,11 @@ export default function FilterScreen({ navigation, route }) {
   // Price ranges
   const priceRanges = [
     { id: 'all', name: 'Any Price', icon: 'cash-outline' },
-    { id: '1', name: '$', icon: 'cash-outline' },
-    { id: '2', name: '$$', icon: 'cash-outline' },
-    { id: '3', name: '$$$', icon: 'cash-outline' },
-    { id: '4', name: '$$$$', icon: 'cash-outline' },
+    { id: '1', name: '£', icon: 'cash-outline' },
+    { id: '2', name: '££', icon: 'cash-outline' },
+    { id: '3', name: '£££', icon: 'cash-outline' },
+    { id: '4', name: '££££', icon: 'cash-outline' },
+    { id: '5', name: '£100+', icon: 'cash-outline' },
   ];
   
   // Ratings

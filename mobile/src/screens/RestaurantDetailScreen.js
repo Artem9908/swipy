@@ -1059,7 +1059,7 @@ export default function RestaurantDetailScreen({ route, navigation }) {
                   <View key={itemIndex} style={styles.menuItem}>
                     <View style={styles.menuItemHeader}>
                       <Text style={styles.menuItemName}>{item.name}</Text>
-                      <Text style={styles.menuItemPrice}>${item.price.toFixed(2)}</Text>
+                      <Text style={styles.menuItemPrice}>£{item.price.toFixed(2)}</Text>
                     </View>
                     <Text style={styles.menuItemDescription}>{item.description}</Text>
                   </View>

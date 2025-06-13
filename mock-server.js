@@ -67,7 +67,7 @@ likes = [
     restaurantName: 'Italiano Delizioso',
     image: 'https://source.unsplash.com/1600x900/?italian,restaurant',
     cuisine: 'Italian',
-    priceRange: '$$',
+    priceRange: '££',
     rating: 4.5,
     location: 'New York',
     timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
@@ -78,7 +78,7 @@ likes = [
     restaurantName: 'Italiano Delizioso',
     image: 'https://source.unsplash.com/1600x900/?italian,restaurant',
     cuisine: 'Italian',
-    priceRange: '$$',
+    priceRange: '££',
     rating: 4.5,
     location: 'New York',
     timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
@@ -89,7 +89,7 @@ likes = [
     restaurantName: 'Sushi Delight',
     image: 'https://source.unsplash.com/1600x900/?sushi,restaurant',
     cuisine: 'Japanese',
-    priceRange: '$$$',
+    priceRange: '£££',
     rating: 4.7,
     location: 'New York',
     timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -100,7 +100,7 @@ likes = [
     restaurantName: 'Sushi Delight',
     image: 'https://source.unsplash.com/1600x900/?sushi,restaurant',
     cuisine: 'Japanese',
-    priceRange: '$$$',
+    priceRange: '£££',
     rating: 4.7,
     location: 'New York',
     timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
@@ -111,7 +111,7 @@ likes = [
     restaurantName: 'Taco Heaven',
     image: 'https://source.unsplash.com/1600x900/?taco,restaurant',
     cuisine: 'Mexican',
-    priceRange: '$',
+    priceRange: '£',
     rating: 4.3,
     location: 'New York',
     timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
@@ -122,7 +122,7 @@ likes = [
     restaurantName: 'Taco Heaven',
     image: 'https://source.unsplash.com/1600x900/?taco,restaurant',
     cuisine: 'Mexican',
-    priceRange: '$',
+    priceRange: '£',
     rating: 4.3,
     location: 'New York',
     timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -576,9 +576,23 @@ app.get('/api/restaurants', async (req, res) => {
     // Преобразуем данные в формат, который ожидает наше приложение
     const restaurants = response.data.results.map(place => {
       // Определяем ценовую категорию
-      let priceRange = '$';
-      if (place.price_level) {
-        priceRange = '$'.repeat(place.price_level);
+      let priceRange = '£';
+      
+      // Check if place has a special price format (like "£100+")
+      if (place.price_level !== undefined) {
+        // Handle special cases where price_level might be a string or special format
+        if (typeof place.price_level === 'string') {
+          // If it's already a formatted string like "£100+", use it directly
+          priceRange = place.price_level;
+        } else if (typeof place.price_level === 'number') {
+          // Standard numeric price level
+          priceRange = '£'.repeat(place.price_level);
+        }
+      }
+      
+      // Also check for any additional price information in the place data
+      if (place.price_range || place.price) {
+        priceRange = place.price_range || place.price;
       }
       
       // Фильтруем по цене, если указана
@@ -742,7 +756,21 @@ app.get('/api/restaurants/:id', async (req, res) => {
         cuisine: place.types.includes('restaurant') ? 
           (place.types.find(t => t !== 'restaurant' && t !== 'food' && t !== 'point_of_interest' && t !== 'establishment') || 'Restaurant').replace('_', ' ') : 
           'Restaurant',
-        priceRange: place.price_level ? '$'.repeat(place.price_level) : '$$',
+        priceRange: (() => {
+          // Handle special price formats
+          if (place.price_level !== undefined) {
+            if (typeof place.price_level === 'string') {
+              return place.price_level; // Use special format like "£100+" directly
+            } else if (typeof place.price_level === 'number') {
+              return '£'.repeat(place.price_level);
+            }
+          }
+          // Check for additional price information
+          if (place.price_range || place.price) {
+            return place.price_range || place.price;
+          }
+          return '££'; // Default fallback
+        })(),
         rating: place.rating || 4.0,
         reviewCount: place.user_ratings_total || Math.floor(Math.random() * 500) + 50,
         location: place.formatted_address.split(',').slice(-2)[0].trim(),
@@ -947,7 +975,7 @@ function generateRealRestaurants(location, cuisine, price, rating) {
   };
   
   const cuisines = Object.keys(restaurantsByType);
-  const priceRanges = ['$', '$$', '$$$', '$$$$'];
+  const priceRanges = ['£', '££', '£££', '££££', '£100+'];
   const locations = {
     'New York': { lat: 40.7128, lng: -74.0060 },
     'Los Angeles': { lat: 34.0522, lng: -118.2437 },
@@ -966,7 +994,7 @@ function generateRealRestaurants(location, cuisine, price, rating) {
     if (!restaurantsByType[cuisineType]) return;
     
     restaurantsByType[cuisineType].forEach((restaurant, index) => {
-      const randomPriceRange = price && price !== 'all' ? '$'.repeat(parseInt(price)) : priceRanges[Math.floor(Math.random() * priceRanges.length)];
+      const randomPriceRange = price && price !== 'all' ? '£'.repeat(parseInt(price)) : priceRanges[Math.floor(Math.random() * priceRanges.length)];
       const randomRating = (Math.random() * 2 + 3).toFixed(1);
       
       // Применяем фильтр по рейтингу, если указан

@@ -176,6 +176,7 @@ function MainTabs({ route }) {
   return (
     <View style={{ flex: 1 }}>
       <Tab.Navigator
+        initialRouteName="Discover"
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;

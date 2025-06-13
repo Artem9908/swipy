@@ -241,21 +241,21 @@ function MainTabs({ route }) {
         })}
       >
         <Tab.Screen 
-          name="Discover" 
-          component={RestaurantListScreen}
-          initialParams={{ user }}
-          options={{ 
-            title: 'Discover',
-            tabBarLabel: 'Discover'
-          }}
-        />
-        <Tab.Screen 
           name="Chat" 
           component={ChatScreen}
           initialParams={{ user }}
           options={{ 
             title: 'Chat',
             tabBarLabel: 'Chat'
+          }}
+        />
+        <Tab.Screen 
+          name="Discover" 
+          component={RestaurantListScreen}
+          initialParams={{ user }}
+          options={{ 
+            title: 'Discover',
+            tabBarLabel: 'Discover'
           }}
         />
         <Tab.Screen 

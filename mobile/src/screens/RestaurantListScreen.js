@@ -477,7 +477,7 @@ export default function RestaurantListScreen({ navigation, route }) {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Discover</Text>
+          <Text style={styles.headerTitle}>Filter</Text>
           <TouchableOpacity style={styles.filterButton} onPress={openFilters}>
             <Ionicons name="options-outline" size={24} color={COLORS.primary} />
           </TouchableOpacity>
@@ -536,7 +536,7 @@ export default function RestaurantListScreen({ navigation, route }) {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover</Text>
+        <Text style={styles.headerTitle}>Filter</Text>
         <TouchableOpacity style={styles.filterButton} onPress={openFilters}>
           <Ionicons name="options-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>

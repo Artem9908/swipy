@@ -40,7 +40,27 @@ export default function TournamentWinnersScreen({ navigation, route }) {
         
       const response = await axios.get(apiUrl);
       console.log('Загруженные победители турниров:', response.data);
-      setTournamentWinners(response.data);
+      if (response.data && Array.isArray(response.data)) {
+        // Deduplicate based on restaurantId, keeping the last (most recent) entry if sorted by date
+        const uniqueWinnersMap = response.data.reduce((map, obj) => {
+          // We only add or update if the restaurantId is valid
+          if (obj.restaurantId) {
+            map.set(obj.restaurantId, obj);
+          }
+          return map;
+        }, new Map());
+        
+        const uniqueWinners = Array.from(uniqueWinnersMap.values());
+        
+        // Sort by date descending (newest first)
+        uniqueWinners.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        console.log('Отфильтрованные и отсортированные победители:', uniqueWinners);
+        setTournamentWinners(uniqueWinners);
+        
+      } else {
+        setTournamentWinners(response.data || []);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Ошибка при загрузке победителей турниров:', error);
@@ -54,7 +74,7 @@ export default function TournamentWinnersScreen({ navigation, route }) {
       restaurant: {
         _id: restaurant.restaurantId,
         name: restaurant.restaurantName,
-        image: restaurant.restaurantImage
+        image: restaurant.image
       },
       user
     });
@@ -70,7 +90,7 @@ export default function TournamentWinnersScreen({ navigation, route }) {
         onPress={() => navigateToRestaurantDetail(item)}
       >
         <Image 
-          source={{ uri: item.restaurantImage || 'https://via.placeholder.com/100?text=Restaurant' }}
+          source={{ uri: item.image || 'https://via.placeholder.com/100?text=Restaurant' }}
           style={styles.restaurantImage}
           resizeMode="cover"
         />

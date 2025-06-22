@@ -262,14 +262,14 @@ export default function MatchesScreen({ navigation, route }) {
             restaurant: {
               _id: item.restaurantId,
               name: item.restaurantName,
-              image: item.restaurantImage
+              image: item.image
             },
             user
           });
         }}
       >
         <Image 
-          source={{ uri: item.restaurantImage || 'https://via.placeholder.com/300?text=No+Image' }} 
+          source={{ uri: item.image || 'https://via.placeholder.com/300?text=No+Image' }} 
           style={styles.restaurantImage} 
         />
         
@@ -285,7 +285,7 @@ export default function MatchesScreen({ navigation, route }) {
                   restaurant: {
                     _id: item.restaurantId,
                     name: item.restaurantName,
-                    image: item.restaurantImage
+                    image: item.image
                   },
                   user
                 });
@@ -306,7 +306,7 @@ export default function MatchesScreen({ navigation, route }) {
                     type: 'restaurant_match',
                     restaurantId: item.restaurantId,
                     restaurantName: item.restaurantName,
-                    restaurantImage: item.restaurantImage,
+                    restaurantImage: item.image,
                     message: `I see we both liked ${item.restaurantName}! Would you like to go together?`
                   }
                 });

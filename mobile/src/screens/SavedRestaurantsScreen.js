@@ -66,6 +66,7 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
 
   // Initial load
   useEffect(() => {
+    navigation.setOptions({ title: 'Favorite Restaurants' });
     fetchSavedRestaurants(true); // Show loading indicator for initial load
     
     return () => {
@@ -457,17 +458,6 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Saved Restaurants</Text>
-          <View style={styles.headerRight} />
-        </View>
-        
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading saved restaurants...</Text>
@@ -479,17 +469,6 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Saved Restaurants</Text>
-          <View style={styles.headerRight} />
-        </View>
-        
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={60} color={COLORS.error} />
           <Text style={styles.errorText}>{error}</Text>
@@ -505,17 +484,6 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
   if (savedRestaurants.length === 0 && !loading && !error) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Saved Restaurants</Text>
-          <View style={styles.headerRight} />
-        </View>
-        
         <View style={styles.emptyContainer}>
           <Ionicons name="heart-outline" size={80} color={COLORS.inactive} />
           <Text style={styles.emptyTitle}>No Saved Restaurants</Text>
@@ -537,17 +505,6 @@ export default function SavedRestaurantsScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Restaurants</Text>
-        <View style={styles.headerRight} />
-      </View>
-      
       <FlatList
         data={savedRestaurants}
         keyExtractor={item => item.restaurantId}
@@ -610,24 +567,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SIZES.padding.md,
-  },
-  backButton: {
-    padding: SIZES.padding.md,
-  },
-  headerTitle: {
-    ...FONTS.h2,
-    color: COLORS.text.primary,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerRight: {
-    width: 24,
-    height: 24,
   },
   loadingContainer: {
     flex: 1,

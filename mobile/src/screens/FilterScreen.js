@@ -101,11 +101,10 @@ export default function FilterScreen({ navigation, route }) {
   // Fetch location suggestions from Google Places API
   const fetchLocationSuggestions = async (query) => {
     try {
-      // Use Google Places Autocomplete API
+      // Use Google Places Autocomplete API for all place types (addresses and cities)
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${GOOGLE_PLACES_API_KEY}`
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_API_KEY}`
       );
-      
       if (response.data && response.data.predictions) {
         setLocationSuggestions(response.data.predictions.slice(0, 5));
       } else {
@@ -113,7 +112,6 @@ export default function FilterScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching location suggestions:', error);
-      
       // Fallback to mock suggestions if API fails
       const mockSuggestions = [
         { place_id: '1', description: 'New York, NY, USA' },
@@ -122,7 +120,6 @@ export default function FilterScreen({ navigation, route }) {
         { place_id: '4', description: 'Tokyo, Japan' },
         { place_id: '5', description: 'Sydney, Australia' }
       ];
-      
       setLocationSuggestions(mockSuggestions);
     } finally {
       setIsLoadingSuggestions(false);
@@ -164,13 +161,28 @@ export default function FilterScreen({ navigation, route }) {
   };
   
   // Select a location from suggestions
-  const selectLocation = (location) => {
+  const selectLocation = async (location) => {
     setLocationQuery(location.description);
-    setFilters({
-      ...filters,
-      location: location.description,
-      placeId: location.place_id
-    });
+    // Fetch place details to get coordinates
+    try {
+      const detailsRes = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${location.place_id}&key=${GOOGLE_PLACES_API_KEY}`
+      );
+      const details = detailsRes.data.result;
+      setFilters({
+        ...filters,
+        location: location.description,
+        placeId: location.place_id,
+        latitude: details.geometry?.location?.lat,
+        longitude: details.geometry?.location?.lng
+      });
+    } catch (e) {
+      setFilters({
+        ...filters,
+        location: location.description,
+        placeId: location.place_id
+      });
+    }
     setLocationSuggestions([]);
     setShowSuggestions(false);
   };
@@ -194,10 +206,40 @@ export default function FilterScreen({ navigation, route }) {
   };
   
   // Apply filters and navigate back
-  const applyFilters = () => {
-    if (onApplyFilters) {
-      onApplyFilters(filters);
+  const applyFilters = async () => {
+    let preparedFilters = {
+      ...filters,
+      vegetarian: filters.vegetarian ? 'true' : undefined,
+      vegan: filters.vegan ? 'true' : undefined,
+      glutenFree: filters.glutenFree ? 'true' : undefined,
+      openNow: filters.openNow ? 'true' : undefined,
+      minRating: filters.minRating,
+      priceRange: filters.priceRange,
+      radius: filters.radius,
+      latitude: filters.latitude,
+      longitude: filters.longitude
+    };
+    // If locationQuery is not empty and no coordinates, geocode it
+    if (locationQuery && (!filters.latitude || !filters.longitude)) {
+      try {
+        const geoRes = await axios.get(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationQuery)}&key=${GOOGLE_PLACES_API_KEY}`
+        );
+        const geo = geoRes.data.results[0];
+        if (geo) {
+          preparedFilters.location = geo.formatted_address;
+          preparedFilters.latitude = geo.geometry.location.lat;
+          preparedFilters.longitude = geo.geometry.location.lng;
+        }
+      } catch (e) {
+        // fallback: just use the string
+        preparedFilters.location = locationQuery;
+      }
     }
+    if (onApplyFilters) {
+      onApplyFilters(preparedFilters);
+    }
+    Alert.alert('Filters Applied', 'Your filters have been applied.');
     navigation.goBack();
   };
   
@@ -214,6 +256,7 @@ export default function FilterScreen({ navigation, route }) {
         {/* Location Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Location</Text>
+          <Text style={styles.helperText}>Enter a city or use your current location to find restaurants nearby.</Text>
           <View style={styles.locationContainer}>
             <View style={styles.inputContainer}>
               <Ionicons name="location-outline" size={20} color={COLORS.text.secondary} style={styles.inputIcon} />
@@ -259,36 +302,35 @@ export default function FilterScreen({ navigation, route }) {
               {isLoadingSuggestions ? (
                 <ActivityIndicator style={styles.loadingIndicator} size="small" color={COLORS.primary} />
               ) : (
-                <FlatList
-                  data={locationSuggestions}
-                  keyExtractor={(item) => item.place_id}
-                  style={styles.suggestionsList}
-                  keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={styles.suggestionItem}
-                      onPress={() => selectLocation(item)}
-                    >
-                      <Ionicons name="location-outline" size={20} color={COLORS.text.secondary} />
-                      <View style={styles.suggestionTextContainer}>
-                        <Text style={styles.suggestionMainText}>{item.description}</Text>
-                      </View>
-                    </TouchableOpacity>
+                <View style={styles.suggestionsList}>
+                  {locationSuggestions.length === 0 && locationQuery.length > 2 ? (
+                    <Text style={styles.noResultsText}>No locations found</Text>
+                  ) : (
+                    locationSuggestions.map(item => (
+                      <TouchableOpacity
+                        key={item.place_id}
+                        style={styles.suggestionItem}
+                        onPress={() => selectLocation(item)}
+                      >
+                        <Ionicons name="location-outline" size={20} color={COLORS.text.secondary} />
+                        <View style={styles.suggestionTextContainer}>
+                          <Text style={styles.suggestionMainText}>{item.description}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))
                   )}
-                  ListEmptyComponent={
-                    locationQuery.length > 2 ? (
-                      <Text style={styles.noResultsText}>No locations found</Text>
-                    ) : null
-                  }
-                />
+                </View>
               )}
             </View>
           )}
         </View>
         
+        <View style={styles.divider} />
+        
         {/* Cuisine Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cuisine</Text>
+          <Text style={styles.helperText}>Select your preferred cuisine.</Text>
           <View style={styles.cuisineContainer}>
             {cuisines.map((cuisine) => (
               <TouchableOpacity
@@ -312,9 +354,12 @@ export default function FilterScreen({ navigation, route }) {
           </View>
         </View>
         
+        <View style={styles.divider} />
+        
         {/* Price Range Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Price Range</Text>
+          <Text style={styles.helperText}>Select your preferred price range.</Text>
           <View style={styles.priceContainer}>
             {priceRanges.map((price) => (
               <TouchableOpacity
@@ -339,9 +384,12 @@ export default function FilterScreen({ navigation, route }) {
           </View>
         </View>
         
+        <View style={styles.divider} />
+        
         {/* Rating Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Minimum Rating</Text>
+          <Text style={styles.helperText}>Select the minimum rating you prefer.</Text>
           <View style={styles.ratingContainer}>
             {ratings.map((rating) => (
               <TouchableOpacity
@@ -365,9 +413,12 @@ export default function FilterScreen({ navigation, route }) {
           </View>
         </View>
         
+        <View style={styles.divider} />
+        
         {/* Distance Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Distance</Text>
+          <Text style={styles.helperText}>Select the maximum distance you are willing to travel.</Text>
           <View style={styles.distanceContainer}>
             <Text style={styles.distanceValue}>{filters.radius / 1000} km</Text>
             <View style={styles.sliderContainer}>
@@ -397,9 +448,12 @@ export default function FilterScreen({ navigation, route }) {
           </View>
         </View>
         
+        <View style={styles.divider} />
+        
         {/* Additional Options Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Additional Options</Text>
+          <Text style={styles.helperText}>Select any additional options you prefer.</Text>
           <View style={styles.optionsContainer}>
             <View style={styles.optionRow}>
               <Text style={styles.optionText}>Open Now</Text>
@@ -490,6 +544,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...FONTS.h2,
     color: COLORS.text.primary,
+    marginBottom: SIZES.padding.md,
+  },
+  helperText: {
+    ...FONTS.body,
+    color: COLORS.text.secondary,
     marginBottom: SIZES.padding.md,
   },
   locationContainer: {
@@ -694,5 +753,10 @@ const styles = StyleSheet.create({
   },
   applyButton: {
     width: '100%',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.gray,
+    marginVertical: SIZES.padding.lg,
   },
 }); 

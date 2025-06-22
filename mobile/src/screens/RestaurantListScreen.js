@@ -27,7 +27,8 @@ export default function RestaurantListScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [detailedRestaurants, setDetailedRestaurants] = useState({});
-  const { user, filters } = route.params || { user: null, filters: null };
+  const { user, filters: initialFilters } = route.params || { user: null, filters: null };
+  const [filters, setFilters] = useState(initialFilters || {});
   
   // Animation values
   const position = useRef(new Animated.ValueXY()).current;
@@ -73,9 +74,7 @@ export default function RestaurantListScreen({ navigation, route }) {
   ).current;
 
   useEffect(() => {
-    if (restaurants.length === 0) {
-      fetchRestaurants();
-    }
+    fetchRestaurants();
   }, [filters]);
   
   const fetchFullRestaurantDetails = async (restaurantId) => {
@@ -424,10 +423,7 @@ export default function RestaurantListScreen({ navigation, route }) {
       user,
       currentFilters: filters,
       onApplyFilters: (newFilters) => {
-        navigation.navigate('Main', { 
-          screen: 'Discover',
-          params: { user, filters: newFilters }
-        });
+        setFilters(newFilters);
       }
     });
   };

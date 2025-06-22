@@ -5,6 +5,14 @@ const RestaurantSchema = new mongoose.Schema({
   priceRange: String,
   rating: Number,
   location: String,
-  image: String
+  image: String,
+  vegetarian: Boolean,
+  vegan: Boolean,
+  glutenFree: Boolean,
+  openNow: Boolean,
+  coordinates: {
+    latitude: Number,
+    longitude: Number
+  }
 });
 module.exports = mongoose.model('Restaurant', RestaurantSchema);

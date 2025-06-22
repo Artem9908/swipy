@@ -598,7 +598,7 @@ export default function RestaurantListScreen({ navigation, route }) {
             onPress={() => viewRestaurantDetails(currentRestaurant)}
             activeOpacity={0.8}
           >
-            <Ionicons name="information-circle" size={32} color={COLORS.primary} />
+            <Ionicons name="information-circle" size={32} color="#000" />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
   infoButton: {
     backgroundColor: COLORS.background,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: '#000',
   },
   likeButton: {
     backgroundColor: COLORS.background,

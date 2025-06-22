@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
@@ -15,8 +15,14 @@ export default function RestaurantCard({
   if (!restaurant) return null;
   
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    setCurrentPhotoIndex(0);
+    setImageLoading(true);
+  }, [restaurant]);
   
-  const allPhotos = [restaurant.image, ...(restaurant.photos || [])].filter(Boolean);
+  const allPhotos = [...new Set([restaurant.image, ...(restaurant.photos || [])].filter(Boolean))];
 
   const handleNextPhoto = () => {
     setCurrentPhotoIndex((prevIndex) => (prevIndex + 1) % allPhotos.length);
@@ -39,9 +45,6 @@ export default function RestaurantCard({
     
     return `${address.street || ''}, ${address.city || ''}, ${address.state || ''} ${address.zipCode || ''}`;
   };
-  
-  // Add state for image loading
-  const [imageLoading, setImageLoading] = useState(true);
   
   // Format hours for display
   const formatHours = (hours) => {

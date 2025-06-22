@@ -26,6 +26,7 @@ export default function RestaurantListScreen({ navigation, route }) {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [detailedRestaurants, setDetailedRestaurants] = useState({});
   const { user, filters } = route.params || { user: null, filters: null };
   
   // Animation values
@@ -72,22 +73,42 @@ export default function RestaurantListScreen({ navigation, route }) {
   ).current;
 
   useEffect(() => {
-    fetchRestaurants();
+    if (restaurants.length === 0) {
+      fetchRestaurants();
+    }
   }, [filters]);
   
-  // Refresh restaurants when the screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('Screen focused, refreshing restaurants data...');
-      // Only fetch if already logged in (the initial effect will handle the first load)
-      if (user && user._id) {
-        fetchRestaurants();
+  const fetchFullRestaurantDetails = async (restaurantId) => {
+    if (!restaurantId || detailedRestaurants[restaurantId]) {
+      return;
+    }
+
+    try {
+      const apiUrl = Platform.OS === 'web' 
+        ? `http://localhost:5001/api/restaurants/${restaurantId}` 
+        : `http://192.168.0.82:5001/api/restaurants/${restaurantId}`;
+      const response = await axios.get(apiUrl);
+      if (response.data) {
+        setDetailedRestaurants(prev => ({ ...prev, [restaurantId]: response.data }));
+        
+        // Update the main restaurants array as well to persist the data
+        setRestaurants(prev => prev.map(r => 
+          (r._id === restaurantId || r.place_id === restaurantId)
+            ? { ...r, ...response.data }
+            : r
+        ));
       }
-      return () => {
-        // Cleanup when screen loses focus
-      };
-    }, [user])
-  );
+    } catch (error) {
+      console.error(`Failed to fetch full details for ${restaurantId}:`, error);
+    }
+  };
+
+  useEffect(() => {
+    if (restaurants.length > 0 && restaurants[currentIndex]) {
+      const restaurantId = restaurants[currentIndex]._id || restaurants[currentIndex].place_id;
+      fetchFullRestaurantDetails(restaurantId);
+    }
+  }, [currentIndex, restaurants]);
 
   const checkAlreadySwiped = async (restaurantId) => {
     if (!user || !user._id || !restaurantId) return false;
@@ -472,7 +493,7 @@ export default function RestaurantListScreen({ navigation, route }) {
   const currentRestaurant = restaurants[currentIndex];
   
   // Check if we've run out of restaurants
-  if (!currentRestaurant) {
+  if (!currentRestaurant && !loading) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
@@ -544,21 +565,27 @@ export default function RestaurantListScreen({ navigation, route }) {
       
       {/* Restaurant Card */}
       <View style={styles.cardContainer}>
-        <RestaurantCard
-          restaurant={currentRestaurant}
-          onPress={viewRestaurantDetails}
-          panHandlers={panResponder.panHandlers}
-          likeOpacity={likeOpacity}
-          dislikeOpacity={dislikeOpacity}
-          rotation={rotation}
-          style={{
-            transform: [
-              { translateX: position.x },
-              { translateY: position.y },
-              { rotate: rotation }
-            ]
-          }}
-        />
+        {currentRestaurant ? (
+          <RestaurantCard
+            restaurant={currentRestaurant}
+            onPress={viewRestaurantDetails}
+            panHandlers={panResponder.panHandlers}
+            likeOpacity={likeOpacity}
+            dislikeOpacity={dislikeOpacity}
+            rotation={rotation}
+            style={{
+              transform: [
+                { translateX: position.x },
+                { translateY: position.y },
+                { rotate: rotation }
+              ]
+            }}
+          />
+        ) : (
+          <View style={styles.noMoreContainer}>
+            <Text>Loading restaurant...</Text>
+          </View>
+        )}
         
         {/* Action Buttons - Redesigned for better mobile experience */}
         <View style={styles.actionButtonsContainer}>

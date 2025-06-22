@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   infoContainer: {
     padding: SIZES.padding.md,
     flex: 1,
-    backgroundColor: COLORS.card,
+    backgroundColor: '#f7f7f7',
   },
   name: {
     fontSize: 20,

@@ -345,28 +345,6 @@ export default function ProfileScreen({ navigation, route }) {
         </Animated.View>
       </Animated.View>
 
-      <Animated.Image 
-        source={{ uri: userData.avatar || 'https://ui-avatars.com/api/?name=User&background=4ecdc4&color=fff' }} 
-        style={[
-          styles.avatar, 
-          { 
-            width: avatarSize, 
-            height: avatarSize, 
-            borderRadius: 50,
-            marginTop: avatarMarginTop
-          }
-        ]} 
-      />
-      
-      <View style={styles.profileNameSection}>
-        <Text style={styles.userName}>{userData.name}</Text>
-        <Text style={styles.userEmail}>{userData.email}</Text>
-        <TouchableOpacity style={styles.editButton} onPress={editProfile}>
-          <Ionicons name="pencil" size={16} color="#fff" />
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
-      </View>
-
       <Animated.ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -376,6 +354,29 @@ export default function ProfileScreen({ navigation, route }) {
           { useNativeDriver: false }
         )}
       >
+        <Animated.Image 
+          source={{ uri: userData.avatar || 'https://ui-avatars.com/api/?name=User&background=4ecdc4&color=fff' }} 
+          style={[
+            styles.avatar, 
+            { 
+              width: avatarSize, 
+              height: avatarSize, 
+              borderRadius: 50,
+              marginTop: avatarMarginTop,
+              opacity: headerOpacity,
+            }
+          ]} 
+        />
+        
+        <Animated.View style={[styles.profileNameSection, { opacity: headerOpacity }]}>
+          <Text style={styles.userName}>{userData.name}</Text>
+          <Text style={styles.userEmail}>{userData.email}</Text>
+          <TouchableOpacity style={styles.editButton} onPress={editProfile}>
+            <Ionicons name="pencil" size={16} color="#fff" />
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
         <View style={styles.content}>
           {/* Статистика */}
           <View style={styles.statsContainer}>
@@ -580,7 +581,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 1,
+    zIndex: 0,
     overflow: 'hidden',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -607,24 +608,26 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
+    zIndex: 2,
   },
   avatar: {
     alignSelf: 'center',
     borderWidth: 4,
     borderColor: COLORS.background,
     ...SHADOWS.medium,
-    zIndex: 2,
+    marginTop: -50,
   },
   profileNameSection: {
     alignItems: 'center',
     paddingTop: 10,
     paddingHorizontal: SIZES.padding.lg,
-    zIndex: 2,
+    paddingBottom: 20,
   },
   userName: {
     ...FONTS.h2,
     color: COLORS.text.primary,
     marginTop: SIZES.padding.xs,
+    marginLeft: 4,
   },
   userEmail: {
     ...FONTS.body,
@@ -647,6 +650,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContentContainer: {
+    paddingTop: 150,
+    zIndex: 1,
   },
   content: {
     flexGrow: 1,

@@ -8,7 +8,7 @@ import {
   TouchableOpacity, 
   Linking, 
   Platform,
-  ActivityIndicator,
+  ActivityIndicator, 
   Dimensions,
   Alert,
   Modal,
@@ -19,7 +19,6 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../styles/theme';
-import FullScreenImageViewer from '../components/FullScreenImageViewer';
 import { useNotifications } from '../context/NotificationContext';
 
 const { width, height } = Dimensions.get('window');
@@ -44,7 +43,6 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [matchedFriends, setMatchedFriends] = useState([]);
@@ -55,6 +53,8 @@ export default function RestaurantDetailScreen({ route, navigation }) {
   const notificationContext = useNotifications();
   const showNotification = notificationContext?.showNotification || (() => {});
   
+  const allPhotos = [...new Set([restaurant.image, ...(restaurant.photos || [])].filter(Boolean))];
+
   useEffect(() => {
     console.log("Initial restaurant data:", JSON.stringify(initialRestaurant, null, 2));
     
@@ -801,71 +801,39 @@ export default function RestaurantDetailScreen({ route, navigation }) {
     <ScrollView style={styles.container}>
       {/* Restaurant Image */}
       <View style={styles.imageContainer}>
-        {restaurant && (restaurant.photos && restaurant.photos.length > 0 || restaurant.image) ? (
-          <>
-            <TouchableOpacity 
-              activeOpacity={0.9}
-              onPress={() => setFullScreenVisible(true)}
-            >
-              {imageLoading && (
-                <View style={styles.imageLoading}>
-                  <ActivityIndicator size="large" color={COLORS.primary} />
-                </View>
-              )}
-              <Image 
-                source={getPhotoUrl()} 
-                style={styles.image}
-                onLoadStart={() => {
-                  console.log('Image load started');
-                  setImageLoading(true);
-                }}
-                onLoadEnd={() => {
-                  console.log('Image load ended');
-                  setImageLoading(false);
-                }}
-                onError={(e) => {
-                  console.error('Error loading image:', e.nativeEvent.error);
-                  setImageLoading(false);
-                  // При ошибке загрузки показываем заполнитель
-                  Alert.alert('Image Error', 'Failed to load restaurant image. Using placeholder image instead.');
-                }}
-              />
-            </TouchableOpacity>
-            
-            {restaurant.photos && restaurant.photos.length > 1 && (
-              <>
-                <TouchableOpacity style={styles.prevButton} onPress={prevPhoto}>
-                  <Ionicons name="chevron-back" size={30} color="#fff" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.nextButton} onPress={nextPhoto}>
-                  <Ionicons name="chevron-forward" size={30} color="#fff" />
-                </TouchableOpacity>
-                
-                <View style={styles.photoCounter}>
-                  <Text style={styles.photoCounterText}>
-                    {currentPhotoIndex + 1}/{restaurant.photos.length}
-                  </Text>
-                </View>
-              </>
-            )}
-          </>
-        ) : (
-          <View style={styles.noImageContainer}>
-            <Ionicons name="image-outline" size={60} color={COLORS.text.secondary} />
-            <Text style={styles.noImageText}>No images available</Text>
+        <Image 
+          source={getPhotoUrl()} 
+          style={styles.image} 
+          onLoadStart={() => setImageLoading(true)}
+          onLoadEnd={() => setImageLoading(false)}
+        />
+        
+        {imageLoading && (
+          <View style={styles.imageOverlay}>
+            <ActivityIndicator size="large" color="#fff" />
           </View>
         )}
         
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => {
-            console.log('Back button pressed, navigating back');
-            navigation.goBack();
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
+        {allPhotos.length > 1 && !imageLoading && (
+          <>
+            <View style={styles.imageTapAreas}>
+              <TouchableOpacity style={styles.tapArea} onPress={prevPhoto} />
+              <TouchableOpacity style={styles.tapArea} onPress={nextPhoto} />
+            </View>
+            
+            <View style={styles.paginationContainer}>
+              {allPhotos.map((_, index) => (
+                <View 
+                  key={index}
+                  style={[
+                    styles.paginationDot,
+                    index === currentPhotoIndex ? styles.paginationDotActive : null
+                  ]}
+                />
+              ))}
+            </View>
+          </>
+        )}
       </View>
       
       {/* Restaurant Info */}
@@ -1084,17 +1052,6 @@ export default function RestaurantDetailScreen({ route, navigation }) {
         )}
       </View>
       
-      {restaurant.photos && restaurant.photos.length > 0 && (
-        <FullScreenImageViewer
-          visible={fullScreenVisible}
-          imageUri={getPhotoUrl().uri}
-          onClose={() => {
-            console.log('Closing fullscreen image viewer');
-            setFullScreenVisible(false);
-          }}
-        />
-      )}
-      
       {renderInviteFriendModal()}
     </ScrollView>
   );
@@ -1109,16 +1066,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   imageContainer: {
-    width: '100%',
-    height: height * 0.4, // Increased height for better visibility
-    position: 'relative',
+    width: width,
+    height: height * 0.4,
+    backgroundColor: COLORS.background,
   },
   image: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  imageLoading: {
+  imageOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1126,57 +1083,47 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
-  photoCounter: {
+  imageTapAreas: {
     position: 'absolute',
-    bottom: SIZES.padding.md,
-    right: SIZES.padding.md,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: SIZES.padding.sm,
-    paddingVertical: SIZES.padding.xs,
-    borderRadius: SIZES.radius.lg,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
   },
-  photoCounterText: {
-    color: '#fff',
-    ...FONTS.caption,
-    fontWeight: '600',
+  tapArea: {
+    flex: 1,
+    height: '100%',
   },
-  prevButton: {
+  paginationContainer: {
     position: 'absolute',
-    left: SIZES.padding.md,
-    top: '50%',
-    transform: [{ translateY: -20 }],
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 25,
-    padding: 10,
-    zIndex: 2,
+    bottom: 30,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 4,
   },
-  nextButton: {
-    position: 'absolute',
-    right: SIZES.padding.md,
-    top: '50%',
-    transform: [{ translateY: -20 }],
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 25,
-    padding: 10,
-    zIndex: 2,
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    margin: 4,
   },
-  backButton: {
-    position: 'absolute',
-    top: SIZES.padding.lg,
-    left: SIZES.padding.lg,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 25,
-    padding: 12,
-    zIndex: 2,
+  paginationDotActive: {
+    backgroundColor: '#fff',
   },
   infoContainer: {
+    flex: 1,
+    marginTop: -20,
     padding: SIZES.padding.lg,
     backgroundColor: COLORS.background,
     borderTopLeftRadius: SIZES.radius.xl,
     borderTopRightRadius: SIZES.radius.xl,
-    marginTop: -SIZES.radius.xl,
     position: 'relative',
     zIndex: 1,
   },

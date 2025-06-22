@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   detailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SIZES.padding.md,
+    marginBottom: SIZES.padding.xs,
     flexWrap: 'wrap',
   },
   cuisine: {
@@ -307,8 +307,9 @@ const styles = StyleSheet.create({
   },
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: SIZES.padding.sm,
+    alignItems: 'center',
+    marginTop: SIZES.padding.xs,
+    paddingHorizontal: SIZES.padding.lg,
   },
   address: {
     ...FONTS.caption,

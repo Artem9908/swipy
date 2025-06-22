@@ -371,9 +371,10 @@ export default function AppNavigator() {
         <Stack.Screen 
           name="RestaurantDetail" 
           component={RestaurantDetailWrapper}
-          options={({ route }) => ({ 
+          options={{ 
             headerShown: false,
-          })}
+            gestureResponseDistance: 500,
+          }}
         />
         <Stack.Screen 
           name="Reservation" 

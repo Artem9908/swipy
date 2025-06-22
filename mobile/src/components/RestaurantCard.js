@@ -14,16 +14,22 @@ export default function RestaurantCard({
 }) {
   if (!restaurant) return null;
   
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  
+  const allPhotos = [restaurant.image, ...(restaurant.photos || [])].filter(Boolean);
+
+  const handleNextPhoto = () => {
+    setCurrentPhotoIndex((prevIndex) => (prevIndex + 1) % allPhotos.length);
+  };
+
+  const handlePrevPhoto = () => {
+    setCurrentPhotoIndex((prevIndex) => (prevIndex - 1 + allPhotos.length) % allPhotos.length);
+  };
+  
   // Get the first image or use a placeholder
-  const imageSource = restaurant.photos && restaurant.photos.length > 0 
-    ? { uri: restaurant.photos[0].includes('maxwidth=') 
-        ? restaurant.photos[0] 
-        : restaurant.photos[0].replace('maxwidth=800', 'maxwidth=1200') }
-    : restaurant.image 
-      ? { uri: restaurant.image.includes('maxwidth=') 
-          ? restaurant.image.replace('maxwidth=1200', 'maxwidth=1600') 
-          : restaurant.image }
-      : { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
+  const imageSource = allPhotos.length > 0
+    ? { uri: allPhotos[currentPhotoIndex] }
+    : { uri: 'https://via.placeholder.com/400x300?text=No+Image' };
   
   // Format address
   const formatAddress = (address) => {
@@ -103,6 +109,25 @@ export default function RestaurantCard({
             onLoadStart={() => setImageLoading(true)}
             onLoadEnd={() => setImageLoading(false)}
           />
+          {allPhotos.length > 1 && (
+            <>
+              <View style={styles.tapContainer}>
+                <TouchableOpacity style={styles.tapArea} onPress={handlePrevPhoto} />
+                <TouchableOpacity style={styles.tapArea} onPress={handleNextPhoto} />
+              </View>
+              <View style={styles.paginationContainer}>
+                {allPhotos.map((_, index) => (
+                  <View 
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      index === currentPhotoIndex ? styles.paginationDotActive : null
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </View>
         
         <View style={styles.infoContainer}>
@@ -180,6 +205,35 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  tapContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+  },
+  tapArea: {
+    flex: 1,
+  },
+  paginationContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    margin: 3,
+  },
+  paginationDotActive: {
+    backgroundColor: 'white',
   },
   overlayContainer: {
     position: 'absolute',

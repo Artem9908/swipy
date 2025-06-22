@@ -302,7 +302,7 @@ export default function FilterScreen({ navigation, route }) {
               {isLoadingSuggestions ? (
                 <ActivityIndicator style={styles.loadingIndicator} size="small" color={COLORS.primary} />
               ) : (
-                <View style={styles.suggestionsList}>
+                <ScrollView style={styles.suggestionsList}>
                   {locationSuggestions.length === 0 && locationQuery.length > 2 ? (
                     <Text style={styles.noResultsText}>No locations found</Text>
                   ) : (
@@ -319,7 +319,7 @@ export default function FilterScreen({ navigation, route }) {
                       </TouchableOpacity>
                     ))
                   )}
-                </View>
+                </ScrollView>
               )}
             </View>
           )}
@@ -592,6 +592,8 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius.md,
     marginTop: SIZES.padding.sm,
     maxHeight: 200,
+    overflow: 'hidden',
+    width: '100%',
   },
   loadingIndicator: {
     padding: SIZES.padding.md,
@@ -603,7 +605,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   suggestionsList: {
-    maxHeight: 200,
+    height: 200,
+    overflow: 'scroll',
+    width: '100%',
   },
   suggestionItem: {
     flexDirection: 'row',
